@@ -1,21 +1,22 @@
 package com.blant.edgepredict.internal;
 
-import org.cytoscape.service.util.AbstractCyActivator;
-import org.osgi.framework.BundleContext;
+import java.util.Properties;
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.application.swing.CyAction;
-import java.util.Properties;
+import org.cytoscape.service.util.AbstractCyActivator;
+import org.cytoscape.work.TaskManager; // Import this
+import org.osgi.framework.BundleContext;
+import com.blant.edgepredict.internal.ui.MenuAction;
 
 public class CyActivator extends AbstractCyActivator {
     @Override
     public void start(BundleContext bc) {
-        // 1. Get the Application Manager (this is a built-in Cytoscape service)
+        TaskManager taskManager = getService(bc, TaskManager.class);
         CyApplicationManager appManager = getService(bc, CyApplicationManager.class);
 
-        // 2. Initialize your Menu Action
-        MenuAction menuAction = new MenuAction(appManager);
+        MenuAction menuAction = new MenuAction(appManager, taskManager);
 
-        // 3. Register it so it appears in the menu
+        // 4. Register it so it appears in the menu
         registerService(bc, menuAction, CyAction.class, new Properties());
     }
 }

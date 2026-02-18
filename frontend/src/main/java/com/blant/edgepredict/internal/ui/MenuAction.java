@@ -1,29 +1,30 @@
-package com.blant.edgepredict.internal;
+package com.blant.edgepredict.internal.ui;
 
 import java.awt.event.ActionEvent;
 import org.cytoscape.application.swing.AbstractCyAction;
 import org.cytoscape.application.CyApplicationManager;
-import javax.swing.JOptionPane;
+import org.cytoscape.work.TaskManager;      // Add this import
+import org.cytoscape.work.TaskIterator;   // Add this import
+import com.blant.edgepredict.internal.LinkPredictionTask; // Ensure this is imported
 
 public class MenuAction extends AbstractCyAction {
     private final CyApplicationManager appManager;
+    private final TaskManager taskManager;
 
-    public MenuAction(CyApplicationManager appManager) {
+    // This is the Constructor - it must accept TWO arguments
+    public MenuAction(CyApplicationManager appManager, TaskManager taskManager) {
         super("Run Link Prediction");
         this.appManager = appManager;
-        // This puts your app in the "Apps" menu at the top of Cytoscape
-        setPreferredMenu("Apps.UCI Link Predictor");
+        this.taskManager = taskManager;
+        setPreferredMenu("Apps.BLANT");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        // This checks if the user actually has a network open
-        if (appManager.getCurrentNetwork() == null) {
-            JOptionPane.showMessageDialog(null, "Please open a network first!");
-            return;
-        }
         
-        JOptionPane.showMessageDialog(null, "Predicting links for UCI project...");
-        // This is where you will eventually call your algorithm class
+        // Check if it's already open, if not, create it
+        NavDashboard dash = new NavDashboard(taskManager);
+        dash.setVisible(true);
+        dash.toFront(); // Brings it to the top of Cytoscape
     }
 }
