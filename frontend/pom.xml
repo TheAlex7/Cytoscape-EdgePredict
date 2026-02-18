@@ -1,0 +1,124 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <!-- The version of the pom.xml format that this is written in -->
+  <modelVersion>4.0.0</modelVersion>
+  
+  <!--
+    Properties are variables that can be referenced throughout the pom.xml file.
+    When the pom.xml file has repeated elements, it's best to use them as properties.
+  -->
+  <properties>
+    <cytoscape.api.version>3.1.0</cytoscape.api.version>
+    <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
+    <maven-bundle-plugin.version>2.3.4</maven-bundle-plugin.version>
+    <osgi.api.version>4.2.0</osgi.api.version>
+  </properties>
+
+	<groupId>com.blant.edgepredict</groupId>
+	<artifactId>BLANT</artifactId>
+	<packaging>bundle</packaging>
+	<version>1.0</version>
+	
+	<name>BLANT for Cytoscape</name>
+
+	
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<version>5.1.8</version>
+				<extensions>true</extensions>
+				<configuration>
+					<instructions>
+						<Bundle-SymbolicName>com.blant.edgepredict</Bundle-SymbolicName>
+						<Bundle-Version>${project.version}</Bundle-Version>
+						<Private-Package>com.blant.edgepredict.internal.*</Private-Package>
+						<Bundle-Activator>com.blant.edgepredict.internal.CyActivator</Bundle-Activator>
+					</instructions>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+  <!--
+    These are repositories Maven uses to download Cytoscape API JARs we
+    use in our app.
+  -->
+  <repositories>
+    <repository>
+      <id>cytoscape_snapshots</id>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <name>Cytoscape Snapshots</name>
+      <url>https://nrnb-nexus.ucsd.edu/repository/cytoscape_snapshots/</url>
+    </repository>
+    <repository>
+      <id>cytoscape_releases</id>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <name>Cytoscape Releases</name>
+      <url>https://nrnb-nexus.ucsd.edu/repository/cytoscape_releases/</url>
+    </repository>
+  </repositories>
+
+  <!--
+    Our app depends on other OSGi bundle JARs. We list all the JARs
+    we depend on here. Just like our own Maven project, these
+    dependencies are uniquely identified by groupId, artifactId,
+    and version. Dependencies do not necessarily have to be
+    OSGi bundles. They can be regular JAR files, in which case they must
+    be inlined or embedded into this bundle.
+  -->
+  <dependencies>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>application-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>model-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>service-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>viewmodel-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>vizmap-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>presentation-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.cytoscape</groupId>
+      <artifactId>work-api</artifactId>
+      <version>${cytoscape.api.version}</version>
+    </dependency>
+    
+    <!-- OSGi core API -->
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.core</artifactId>
+      <version>${osgi.api.version}</version>
+    </dependency>
+  </dependencies>
+</project>
