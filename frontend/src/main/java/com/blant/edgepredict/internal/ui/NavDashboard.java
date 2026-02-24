@@ -2,77 +2,85 @@ package com.blant.edgepredict.internal.ui;
 
 import javax.swing.*;
 import java.awt.*;
-
+import java.awt.event.ActionEvent;
 import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.TaskIterator;
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.util.swing.FileUtil;
-
+import org.cytoscape.view.model.CyNetworkView;
+import org.cytoscape.view.vizmap.VisualMappingManager;
+import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
+import org.cytoscape.view.vizmap.VisualStyleFactory;
 import com.blant.edgepredict.internal.task.LinkPredictionTask;
 import com.blant.edgepredict.internal.task.ExportGraph;
+import com.blant.edgepredict.internal.util.VisualUtil;
 
+// This class creates the dashboard with buttons to run prediction, update colors, and export the graph
 public class NavDashboard extends JFrame {
-
+    // Fields to hold the services we need
     private final TaskManager taskManager;
     private final CyApplicationManager applicationManager;
     private final CyNetworkViewWriterManager writerManager;
     private final FileUtil fileUtil;
+    private final VisualMappingManager vmm;
+    private final VisualMappingFunctionFactory vmfFactoryDiscrete;
+    private final VisualStyleFactory vsFactory;
 
-    public NavDashboard(
-            TaskManager taskManager,
-            CyApplicationManager applicationManager,
-            CyNetworkViewWriterManager writerManager,
-            FileUtil fileUtil) {
+    // Constructor to initialize the dashboard and its components
+    public NavDashboard(TaskManager taskManager, 
+                        CyApplicationManager applicationManager, 
+                        CyNetworkViewWriterManager writerManager, 
+                        FileUtil fileUtil, 
+                        VisualMappingManager vmm, 
+                        VisualMappingFunctionFactory vmfFactoryDiscrete, 
+                        VisualStyleFactory vsFactory) {
 
         super("BLANT Navigation Controller");
-
+        
+        // Store the services for later use in button actions
         this.taskManager = taskManager;
         this.applicationManager = applicationManager;
         this.writerManager = writerManager;
         this.fileUtil = fileUtil;
+        this.vmm = vmm;
+        this.vmfFactoryDiscrete = vmfFactoryDiscrete;
+        this.vsFactory = vsFactory;
 
-        // Layout
-        setLayout(new GridLayout(5, 1, 10, 10));
-        ((JPanel) getContentPane()).setBorder(
-                BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // Set up the layout and padding for the dashboard
+        setLayout(new GridLayout(6, 1, 10, 10)); 
+        ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Button 1: Run Logic
+        // Button: Run Prediction
         JButton runBtn = new JButton("Run Prediction");
-        runBtn.addActionListener(e ->
-                taskManager.execute(new TaskIterator(new LinkPredictionTask()))
+        runBtn.addActionListener(e -> taskManager.execute(new TaskIterator(new LinkPredictionTask())));
+
+        // Button: Update Colors (Uses VisualUtil)
+        JButton colorBtn = new JButton("Update Edge Colors");
+        colorBtn.addActionListener(e -> 
+            VisualUtil.applyStyles(applicationManager.getCurrentNetworkView(), vmm, vmfFactoryDiscrete, vsFactory)
         );
 
-        // Button 2: Show Network Stats
-        JButton statsBtn = new JButton("Show Network Stats");
-        statsBtn.addActionListener(e ->
-                JOptionPane.showMessageDialog(this, "Stats logic goes here!")
-        );
-
-        // Button 3: Reset View
-        JButton resetBtn = new JButton("Reset View");
-
-        // Button 4: Export SIF
-       JButton exportBtn = new JButton("Export Network as SIF");
+        // Button: Export SIF
+        JButton exportBtn = new JButton("Export Network as SIF");
         exportBtn.addActionListener(e -> {
             try {
                 new ExportGraph(applicationManager, writerManager, fileUtil).export();
             } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(this,
-                        "Export failed: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage());
             }
         });
 
-
+        // Add components to the dashboard
         add(new JLabel("Control Panel", SwingConstants.CENTER));
         add(runBtn);
-        add(statsBtn);
-        add(resetBtn);
+        add(colorBtn);
         add(exportBtn);
-
-        pack();
-        setLocationRelativeTo(null);  // centers window
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        // You can add more buttons here for additional functionality
+        pack();// Adjust size to fit components
+        setLocationRelativeTo(null);// Center on screen
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);// Close only the dashboard, not the entire app
     }
+
+  
 }

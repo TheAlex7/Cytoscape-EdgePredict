@@ -1,44 +1,44 @@
 package com.blant.edgepredict.internal.ui;
 
 import java.awt.event.ActionEvent;
-
-import org.cytoscape.application.swing.AbstractCyAction;
 import org.cytoscape.application.CyApplicationManager;
+import org.cytoscape.application.swing.AbstractCyAction;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.util.swing.FileUtil;
+import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
+import org.cytoscape.view.vizmap.VisualMappingManager;
+import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
 
+
+// This class creates the menu item and opens the dashboard when clicked
 public class MenuAction extends AbstractCyAction {
 
     private final CyApplicationManager appManager;
     private final TaskManager taskManager;
     private final CyNetworkViewWriterManager writerManager;
     private final FileUtil fileUtil;
+    private final VisualMappingManager vmm;
+    private final VisualMappingFunctionFactory vmf;
+    private final VisualStyleFactory vsFactory;
 
-    public MenuAction(CyApplicationManager appManager,
-                      TaskManager taskManager,
-                      CyNetworkViewWriterManager writerManager,
-                      FileUtil fileUtil) {
-
-        super("Run Link Prediction");
-
+    public MenuAction(CyApplicationManager appManager, TaskManager taskManager, CyNetworkViewWriterManager writerManager, 
+                      FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmf, VisualStyleFactory vsFactory) {
+        super("BLANT Prediction Dashboard");
         this.appManager = appManager;
         this.taskManager = taskManager;
         this.writerManager = writerManager;
         this.fileUtil = fileUtil;
-
-        setPreferredMenu("Apps.BLANT");
+        this.vmm = vmm;
+        this.vmf = vmf;
+        this.vsFactory = vsFactory;
+        setPreferredMenu("Apps");
     }
 
+    // This method is called when the menu item is clicked, and it opens the NavDashboard
     @Override
     public void actionPerformed(ActionEvent e) {
-        NavDashboard dash = new NavDashboard(
-                taskManager,
-                appManager,
-                writerManager,
-                fileUtil
-        );
-        dash.setVisible(true);
-        dash.toFront();
+        NavDashboard dashboard = new NavDashboard(taskManager, appManager, writerManager, fileUtil, vmm, vmf, vsFactory);
+        dashboard.setVisible(true);
     }
 }
