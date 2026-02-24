@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.Collections;
 
-import javax.swing.JOptionPane;   // ✅ Important
+import javax.swing.JOptionPane; 
 
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.io.CyFileFilter;

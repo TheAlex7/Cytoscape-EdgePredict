@@ -32,14 +32,12 @@ public class MenuAction extends AbstractCyAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-
         NavDashboard dash = new NavDashboard(
                 taskManager,
                 appManager,
                 writerManager,
                 fileUtil
         );
-
         dash.setVisible(true);
         dash.toFront();
     }

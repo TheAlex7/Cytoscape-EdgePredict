@@ -9,7 +9,7 @@ import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.util.swing.FileUtil;
 
-import com.blant.edgepredict.internal.LinkPredictionTask;
+import com.blant.edgepredict.internal.task.LinkPredictionTask;
 import com.blant.edgepredict.internal.task.ExportGraph;
 
 public class NavDashboard extends JFrame {
