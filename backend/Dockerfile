@@ -13,6 +13,8 @@ RUN pip install -r requirements.txt
 COPY hello.c .
 RUN gcc hello.c -o hello 
 
+RUN chmod +x run_mock.sh
+
 COPY app.py .
 
 EXPOSE 5000

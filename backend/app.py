@@ -53,12 +53,12 @@ def sendToBlant():
 
     try:
         graph_file = file.read().decode('utf-8') # we don't do anything with it just yet
-        blant_result = subprocess.run(['./run_mock.sh'],
+        blant_result = subprocess.run(['./mock_test/mock_blant'],
                                 capture_output=True, 
                                 text=True)
 
         buffer = io.BytesIO()
-        buffer.write(blant_result.encode('utf-8'))
+        buffer.write(blant_result.stdout.encode('utf-8'))
         buffer.seek(0)
 
         return send_file(
@@ -68,7 +68,8 @@ def sendToBlant():
             mimetype='text/plain'
         )
     except Exception as e:
-        return jsonify({"error": "Failed to process text file. Ensure it is UTF-8 encoded."}), 500
+        return jsonify({"error": "Failed to process text file. Ensure it is UTF-8 encoded.",
+                        "raw": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
