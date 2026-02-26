@@ -2,6 +2,10 @@ package com.blant.edgepredict.internal.ui;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.TaskIterator;
 import org.cytoscape.application.CyApplicationManager;
@@ -16,6 +20,7 @@ import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import com.blant.edgepredict.internal.task.LinkPredictionTask;
 import com.blant.edgepredict.internal.task.ExportGraph;
+import com.blant.edgepredict.internal.task.ImportGraph;
 import com.blant.edgepredict.internal.task.SendToBlant;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
@@ -82,20 +87,26 @@ public class NavDashboard extends JFrame {
             }
         });
 
-        // Button: Send to BLANT
-        JButton sendBtn = new JButton("Send to BLANT");
-        sendBtn.addActionListener(e -> {
+        // Button: Import SIF ** THIS BUTTON IS ONLY FOR UNIT TEST PURPOSE**
+        List<String[]> dummyData;
+        dummyData = new ArrayList<>();
+        String[] dummyRow = {"a", "c", "0.5"};
+        dummyData.add(dummyRow);
+        JButton importBtn = new JButton("Import Network from SIF");
+        importBtn.addActionListener(e -> {
             try {
-                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager).send();
+                taskManager.execute(new TaskIterator(new ImportGraph(applicationManager, dummyData)));
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage());
             }
         });
 
+        // Add components to the dashboard
         add(new JLabel("Control Panel", SwingConstants.CENTER));
         add(runBtn);
         add(colorBtn);
         add(exportBtn);
+        add(importBtn);
         add(sendBtn);
 
         pack();
