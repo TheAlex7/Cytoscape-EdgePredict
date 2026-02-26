@@ -14,8 +14,8 @@ COPY mock ./mock
 COPY Makefile .
 RUN make
 
-COPY run_mock.sh .
-COPY say_hello.sh .
+COPY scripts/run_mock.sh .
+COPY scripts/say_hello.sh .
 
 COPY app.py .
 
