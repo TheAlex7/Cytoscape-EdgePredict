@@ -2,7 +2,6 @@ package com.blant.edgepredict.internal.ui;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,7 +63,7 @@ public class NavDashboard extends JFrame {
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
 
-        setLayout(new GridLayout(7, 1, 10, 10));
+        setLayout(new GridLayout(8, 1, 10, 10));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // Button: Run Prediction
@@ -88,8 +87,7 @@ public class NavDashboard extends JFrame {
         });
 
         // Button: Import SIF ** THIS BUTTON IS ONLY FOR UNIT TEST PURPOSE**
-        List<String[]> dummyData;
-        dummyData = new ArrayList<>();
+        List<String[]> dummyData = new ArrayList<>();
         String[] dummyRow = {"a", "c", "0.5"};
         dummyData.add(dummyRow);
         JButton importBtn = new JButton("Import Network from SIF");
@@ -101,7 +99,16 @@ public class NavDashboard extends JFrame {
             }
         });
 
-        // Add components to the dashboard
+        // Button: Send to BLANT
+        JButton sendBtn = new JButton("Send to BLANT");
+        sendBtn.addActionListener(e -> {
+            try {
+                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager).send();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
+            }
+        });
+
         add(new JLabel("Control Panel", SwingConstants.CENTER));
         add(runBtn);
         add(colorBtn);
