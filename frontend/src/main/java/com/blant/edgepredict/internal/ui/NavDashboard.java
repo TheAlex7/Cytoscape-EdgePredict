@@ -23,6 +23,7 @@ import com.blant.edgepredict.internal.task.ImportGraph;
 import com.blant.edgepredict.internal.task.SendToBlant;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
+// This class creates the dashboard with buttons to run prediction, update colors, and export the graph
 public class NavDashboard extends JFrame {
 
     private final TaskManager taskManager;
@@ -105,6 +106,7 @@ public class NavDashboard extends JFrame {
             }
         });
 
+        // Add components to the dashboard
         add(new JLabel("Control Panel", SwingConstants.CENTER));
         add(runBtn);
         add(colorBtn);
@@ -116,4 +118,6 @@ public class NavDashboard extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
+
+  
 }

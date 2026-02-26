@@ -14,6 +14,7 @@ import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
 
+// This class creates the menu item and opens the dashboard when clicked
 public class MenuAction extends AbstractCyAction {
 
     private final CyApplicationManager appManager;
@@ -54,6 +55,7 @@ public class MenuAction extends AbstractCyAction {
         setPreferredMenu("Apps");
     }
 
+    // This method is called when the menu item is clicked, and it opens the NavDashboard
     @Override
     public void actionPerformed(ActionEvent e) {
         NavDashboard dashboard = new NavDashboard(taskManager, appManager, writerManager, fileUtil, vmm, vmf, vsFactory,

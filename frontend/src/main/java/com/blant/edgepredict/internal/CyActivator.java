@@ -19,6 +19,7 @@ import org.osgi.framework.BundleContext;
 import com.blant.edgepredict.internal.ui.MenuAction;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
+// This class is the entry point of the app and registers the menu item and dashboard
 public class CyActivator extends AbstractCyActivator {
 
     @Override
