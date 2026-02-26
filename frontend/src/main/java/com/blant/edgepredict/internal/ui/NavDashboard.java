@@ -86,14 +86,10 @@ public class NavDashboard extends JFrame {
             }
         });
 
-        // Button: Import SIF ** THIS BUTTON IS ONLY FOR UNIT TEST PURPOSE**
-        List<String[]> dummyData = new ArrayList<>();
-        String[] dummyRow = {"a", "c", "0.5"};
-        dummyData.add(dummyRow);
         JButton importBtn = new JButton("Import Network from SIF");
         importBtn.addActionListener(e -> {
             try {
-                taskManager.execute(new TaskIterator(new ImportGraph(applicationManager, dummyData)));
+                taskManager.execute(new TaskIterator(new ImportGraph(applicationManager)));
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage());
             }

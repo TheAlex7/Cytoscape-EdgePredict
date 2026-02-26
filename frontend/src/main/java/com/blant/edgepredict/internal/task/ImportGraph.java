@@ -9,22 +9,26 @@ import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.view.model.CyNetworkView;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
 public class ImportGraph extends AbstractTask{
 
     private final CyApplicationManager appManager;
-    private final List<String[]> edgeDataList;
     private boolean cancelled;
 
-    public ImportGraph(CyApplicationManager appManager, List<String[]> edgeDataList) {
+    public ImportGraph(CyApplicationManager appManager) {
         this.cancelled = false;
         this.appManager = appManager;
-        this.edgeDataList = edgeDataList;
     }
 
     @Override
@@ -48,6 +52,25 @@ public class ImportGraph extends AbstractTask{
         for (CyNode node : currentNetwork.getNodeList()) {
             String name = currentNetwork.getRow(node).get(CyNetwork.NAME, String.class);
             if (name != null) nodeMap.put(name, node);
+        }
+
+        // Load edge data list
+        JFileChooser fileChooser = new JFileChooser();
+        File selectedFile = fileChooser.getSelectedFile();
+        List<String[]> edgeDataList = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(selectedFile))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                StringTokenizer st = new StringTokenizer(line, " \t");
+                int count = st.countTokens();
+                String[] row = new String[count];
+                for (int i = 0; i < count; i++) {
+                    row[i] = st.nextToken();
+                }
+                edgeDataList.add(row);
+            }
         }
 
         // Add edges
