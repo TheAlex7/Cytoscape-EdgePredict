@@ -9,9 +9,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copy and compile
-COPY hello.c .
-RUN gcc hello.c -o hello 
+COPY mock ./mock
+
+COPY Makefile .
+RUN make
+
+COPY scripts/run_mock.sh .
+COPY scripts/say_hello.sh .
 
 COPY app.py .
 
