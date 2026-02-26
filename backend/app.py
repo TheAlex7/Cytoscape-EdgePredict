@@ -12,8 +12,8 @@ def index():
 def sayHello():
     
     try:
-        # Execute the C binary
-        result = subprocess.run(['./hello'],
+        # Execute shell script
+        result = subprocess.run(['bash', './say_hello.sh'],
                                 capture_output=True, 
                                 text=True)
         
@@ -28,7 +28,7 @@ def sayHello():
 
 # file size limit 1 MB (1024 * 1024 bytes)
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
-VALID_EXTENSIONS = {'txt', 'csv', "sif"}
+VALID_EXTENSIONS = {'txt', 'csv', 'sif'}
 
 def isValidFile(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
@@ -53,10 +53,16 @@ def sendToBlant():
 
     try:
         graph_file = file.read().decode('utf-8') # we don't do anything with it just yet
-        blant_result = subprocess.run(['./mock_test/mock_blant'],
-                                capture_output=True, 
-                                text=True)
+        blant_result = subprocess.run(['bash', './run_mock.sh'],
+                                    capture_output=True, 
+                                    text=True)
 
+        if blant_result.returncode != 0:
+            return jsonify({
+                "error": "blant process failed",
+                "stderr": blant_result.stderr
+            }), 500
+        
         buffer = io.BytesIO()
         buffer.write(blant_result.stdout.encode('utf-8'))
         buffer.seek(0)
@@ -64,7 +70,7 @@ def sendToBlant():
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f"blant_res_{file.filename}",
+            download_name=f'blant_res_{file.filename}',
             mimetype='text/plain'
         )
     except Exception as e:
