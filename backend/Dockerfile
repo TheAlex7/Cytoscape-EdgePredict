@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 
-# Install build-essential
+# Install build-essential and dos2unix
 RUN apt-get update && apt-get install -y \
-    build-essential 
+    build-essential \
+    dos2unix
 
 WORKDIR /app
 
@@ -16,6 +17,13 @@ RUN make
 
 COPY scripts/run_mock.sh .
 COPY scripts/say_hello.sh .
+
+# Fix Windows line endings
+RUN dos2unix run_mock.sh
+RUN dos2unix say_hello.sh
+RUN chmod +x run_mock.sh
+RUN chmod +x say_hello.sh
+RUN chmod +x mock/_objs/mock_blant
 
 COPY app.py .
 

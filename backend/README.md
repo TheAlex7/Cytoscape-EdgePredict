@@ -1,4 +1,6 @@
 Important note: for allowing docker desktop into wsl terminal go to ```settings > resources > enable WSL integration``` and enable Ubuntu.
+### Make sure docker is running 
+'''docker info'''
 
 ### Build docker container
 ```docker build -t flask-c-bridge .```
