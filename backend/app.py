@@ -13,7 +13,7 @@ def sayHello():
     
     try:
         # Execute shell script
-        result = subprocess.run(['bash', './say_hello.sh'],
+        result = subprocess.Popen(['bash', './say_hello.sh'],
                                 capture_output=True, 
                                 text=True)
         
@@ -70,7 +70,7 @@ def sendToBlant():
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f'blant_res_{file.filename}',
+            download_name=f'{file.filename}blant_res',
             mimetype='text/plain'
         )
     except Exception as e:
