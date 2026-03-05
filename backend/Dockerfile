@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY mock ./mock
-
+COPY src ./src 
 COPY Makefile .
 RUN make
 

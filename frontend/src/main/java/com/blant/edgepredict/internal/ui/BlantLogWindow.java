@@ -7,6 +7,14 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent; 
+
+
+
+
+
+import com.blant.edgepredict.internal.util.BlantConfig;
 
 public class BlantLogWindow extends JFrame {
 
@@ -26,6 +34,13 @@ public class BlantLogWindow extends JFrame {
 
         JScrollPane scrollPane = new JScrollPane(logArea);
         scrollPane.setPreferredSize(new Dimension(600, 400));
+
+        this.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent windowEvent) {
+                stopPolling();
+            }
+        });
 
         closeBtn = new JButton("Close");
         closeBtn.addActionListener(e -> {
@@ -58,7 +73,7 @@ public class BlantLogWindow extends JFrame {
             protected Void doInBackground() throws Exception {
                 while (!isCancelled()) {
                     try {
-                        URL url = new URL("http://localhost:5000/ping");
+                        URL url = new URL("http://localhost:55161/progress/" + BlantConfig.getJobId());
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("GET");
                         conn.setConnectTimeout(2000);

@@ -81,7 +81,7 @@ public class SendToBlant {
             baos.write(Files.readAllBytes(file.toPath()));
             baos.write((LINE_FEED + "--" + boundary + "--" + LINE_FEED).getBytes(StandardCharsets.UTF_8));
 
-            URL url = new URL("http://localhost:5000/blant");
+            URL url = new URL("http://localhost:55161/blant");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
