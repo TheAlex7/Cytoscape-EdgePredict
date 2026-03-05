@@ -23,7 +23,6 @@ import com.blant.edgepredict.internal.task.ImportGraph;
 import com.blant.edgepredict.internal.task.SendToBlant;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
-// This class creates the dashboard with buttons to run prediction, update colors, and export the graph
 public class NavDashboard extends JFrame {
 
     private final TaskManager taskManager;
@@ -64,18 +63,55 @@ public class NavDashboard extends JFrame {
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
 
-        setLayout(new GridLayout(8, 1, 10, 10));
+        setLayout(new FlowLayout(FlowLayout.LEFT));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+
+        JLabel subSample = new JLabel("Sample Method");
+        subSample.setPreferredSize(new Dimension(250, 25));
+
+        String[] arrSample = new String[1];
+		arrSample[0] = "MCRC";
+		JComboBox<String> jcbSample = new JComboBox<String>(arrSample);
+        jcbSample.setPreferredSize(new Dimension(200, 25));
+
+
+        JLabel subPrec = new JLabel("Precision Digits");
+        subPrec.setPreferredSize(new Dimension(250, 25));
+
+        Integer[] arrPrec = new Integer[5];
+		for (int i = 0; i < arrPrec.length; i++) {
+			arrPrec[i] = i + 1;
+		}
+		JComboBox<Integer> jcbPrec = new JComboBox<Integer>(arrPrec);
+        jcbPrec.setPreferredSize(new Dimension(200, 25));
+
+        JLabel subK = new JLabel("K-values");
+        subK.setPreferredSize(new Dimension(250, 25));
+
+        JCheckBox cbK3 = new JCheckBox("3");
+        JCheckBox cbK4 = new JCheckBox("4");
+        JCheckBox cbK5 = new JCheckBox("5");
+        JCheckBox cbK6 = new JCheckBox("6");
+        JCheckBox cbK7 = new JCheckBox("7");
+
+        JLabel subBlank = new JLabel("");
+        subBlank.setPreferredSize(new Dimension(450, 25));
+
+        JLabel subPrecWarn = new JLabel("<HTML>*Warning! Increasing precision digit will cause runtime increase in<br/>quadratic manner!</HTML>");
+        subPrecWarn.setPreferredSize(new Dimension(450, 50));
 
         // Button: Run Prediction
         JButton runBtn = new JButton("Run Prediction");
         runBtn.addActionListener(e -> taskManager.execute(new TaskIterator(new LinkPredictionTask())));
+        runBtn.setPreferredSize(new Dimension(145, 25));
 
         // Button: Update Colors
         JButton colorBtn = new JButton("Update Edge Colors");
         colorBtn.addActionListener(e ->
                 VisualUtil.applyStyles(applicationManager.getCurrentNetworkView(), vmm, vmfFactoryDiscrete, vsFactory)
         );
+        colorBtn.setPreferredSize(new Dimension(145, 25));
 
         // Button: Export SIF
         JButton exportBtn = new JButton("Export Network as SIF");
@@ -86,15 +122,17 @@ public class NavDashboard extends JFrame {
                 JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage());
             }
         });
+        exportBtn.setPreferredSize(new Dimension(145, 25));
 
         JButton importBtn = new JButton("Import Network from SIF");
         importBtn.addActionListener(e -> {
             try {
-                taskManager.execute(new TaskIterator(new ImportGraph(applicationManager)));
+                new ImportGraph(applicationManager, fileUtil).importFromFile();;
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage());
             }
         });
+        importBtn.setPreferredSize(new Dimension(145, 25));
 
         // Button: Send to BLANT
         JButton sendBtn = new JButton("Send to BLANT");
@@ -105,19 +143,35 @@ public class NavDashboard extends JFrame {
                 JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
             }
         });
+        sendBtn.setPreferredSize(new Dimension(145, 25));
 
-        // Add components to the dashboard
-        add(new JLabel("Control Panel", SwingConstants.CENTER));
+        add(subSample);
+        add(jcbSample);
+
+        add(subPrec);
+        add(jcbPrec);
+
+        add(subK);
+        add(cbK3);
+        add(cbK4);
+        add(cbK5);
+        add(cbK6);
+        add(cbK7);
+
+        add(subBlank);
+        add(subPrecWarn);
+
         add(runBtn);
         add(colorBtn);
+
         add(exportBtn);
         add(importBtn);
         add(sendBtn);
 
+        setPreferredSize(new Dimension(480, 300));
         pack();
         setLocationRelativeTo(null);
+        setResizable(false);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
-
-  
 }

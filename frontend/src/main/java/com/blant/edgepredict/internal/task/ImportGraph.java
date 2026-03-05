@@ -5,11 +5,14 @@ import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyNode;
 import org.cytoscape.model.CyTable;
+import org.cytoscape.util.swing.FileChooserFilter;
+import org.cytoscape.util.swing.FileUtil;
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.view.model.CyNetworkView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,25 +24,37 @@ import java.io.FileReader;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
-public class ImportGraph extends AbstractTask{
+public class ImportGraph{
 
     private final CyApplicationManager appManager;
+    private final FileUtil fileUtil;
     private boolean cancelled;
 
-    public ImportGraph(CyApplicationManager appManager) {
+    public ImportGraph(CyApplicationManager appManager,
+                        FileUtil fileUtil) {
         this.cancelled = false;
         this.appManager = appManager;
+        this.fileUtil = fileUtil;
     }
 
-    @Override
-    public void run(TaskMonitor taskMonitor) throws Exception {
-        taskMonitor.setTitle("Importing Predicted Edges...");
-        
+    public void importFromFile() throws Exception {
+        // taskMonitor.setTitle("Importing Predicted Edges...");
+
+        // Open current network
         CyNetwork currentNetwork = appManager.getCurrentNetwork();
         if (currentNetwork == null) {
-            JOptionPane.showMessageDialog(null, "No active network view found.");
-            return;
+            throw new IllegalStateException("No active network found.");
         }
+
+        // Import file
+        FileChooserFilter chooserFilter =
+                new FileChooserFilter("SIF Network (*.sif)", "sif");
+        File selectedFile = fileUtil.getFile(
+                JOptionPane.getRootFrame(),
+                "Load Edges from SIF",
+                FileUtil.LOAD,
+                Collections.singletonList(chooserFilter)
+        );
 
         // Prepare columns
         CyTable edgeTable = currentNetwork.getTable(CyEdge.class, CyNetwork.DEFAULT_ATTRS);
@@ -55,8 +70,6 @@ public class ImportGraph extends AbstractTask{
         }
 
         // Load edge data list
-        JFileChooser fileChooser = new JFileChooser();
-        File selectedFile = fileChooser.getSelectedFile();
         List<String[]> edgeDataList = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(selectedFile))) {
             String line;
@@ -74,7 +87,7 @@ public class ImportGraph extends AbstractTask{
         }
 
         // Add edges
-        taskMonitor.setStatusMessage("Adding edges to the network...");
+        // taskMonitor.setStatusMessage("Adding edges to the network...");
         int totalEdges = edgeDataList.size();
         int currentCount = 0;
         for (String[] row : edgeDataList) {
@@ -98,13 +111,13 @@ public class ImportGraph extends AbstractTask{
 
             // Refresh progress rate
             currentCount++;
-            taskMonitor.setProgress((double) currentCount / totalEdges);
+            // taskMonitor.setProgress((double) currentCount / totalEdges);
         }
 
         // Refresh view
         CyNetworkView currentView = appManager.getCurrentNetworkView();
         if (currentView != null) {
-            taskMonitor.setStatusMessage("Updating network view...");
+            // taskMonitor.setStatusMessage("Updating network view...");
             currentView.updateView();
         }
     }
