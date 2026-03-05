@@ -1,4 +1,4 @@
-package com.blant.edgepredict.internal;
+package com.blant.edgepredict.internal.task;
 
 import org.cytoscape.work.AbstractTask;
 import org.cytoscape.work.TaskMonitor;
