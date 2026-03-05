@@ -7,8 +7,6 @@ import org.cytoscape.model.CyNode;
 import org.cytoscape.model.CyTable;
 import org.cytoscape.util.swing.FileChooserFilter;
 import org.cytoscape.util.swing.FileUtil;
-import org.cytoscape.work.AbstractTask;
-import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.view.model.CyNetworkView;
 
 import java.util.ArrayList;
@@ -21,34 +19,29 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 
-import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
-public class ImportGraph{
+public class ImportGraph {
 
     private final CyApplicationManager appManager;
     private final FileUtil fileUtil;
     private boolean cancelled;
 
-    public ImportGraph(CyApplicationManager appManager,
-                        FileUtil fileUtil) {
+    public ImportGraph(CyApplicationManager appManager, FileUtil fileUtil) {
         this.cancelled = false;
         this.appManager = appManager;
         this.fileUtil = fileUtil;
     }
 
-    public void importFromFile() throws Exception {
-        // taskMonitor.setTitle("Importing Predicted Edges...");
+    public void importFile() throws Exception {
 
-        // Open current network
         CyNetwork currentNetwork = appManager.getCurrentNetwork();
         if (currentNetwork == null) {
-            throw new IllegalStateException("No active network found.");
+            JOptionPane.showMessageDialog(null, "No active network found.");
+            return;
         }
 
-        // Import file
-        FileChooserFilter chooserFilter =
-                new FileChooserFilter("SIF Network (*.sif)", "sif");
+        FileChooserFilter chooserFilter = new FileChooserFilter("SIF Network (*.sif)", "sif");
         File selectedFile = fileUtil.getFile(
                 JOptionPane.getRootFrame(),
                 "Load Edges from SIF",
@@ -56,20 +49,22 @@ public class ImportGraph{
                 Collections.singletonList(chooserFilter)
         );
 
+        if (selectedFile == null) return;
+
         // Prepare columns
         CyTable edgeTable = currentNetwork.getTable(CyEdge.class, CyNetwork.DEFAULT_ATTRS);
         if (edgeTable.getColumn("confidence_score") == null) {
             edgeTable.createColumn("confidence_score", Double.class, false);
         }
 
-        // Node Indexing
+        // Node indexing
         Map<String, CyNode> nodeMap = new HashMap<>();
         for (CyNode node : currentNetwork.getNodeList()) {
             String name = currentNetwork.getRow(node).get(CyNetwork.NAME, String.class);
             if (name != null) nodeMap.put(name, node);
         }
 
-        // Load edge data list
+        // Load edge data from file
         List<String[]> edgeDataList = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(selectedFile))) {
             String line;
@@ -87,38 +82,35 @@ public class ImportGraph{
         }
 
         // Add edges
-        // taskMonitor.setStatusMessage("Adding edges to the network...");
-        int totalEdges = edgeDataList.size();
-        int currentCount = 0;
+        int added = 0;
         for (String[] row : edgeDataList) {
-            if (this.cancelled) return; 
+            if (cancelled) return;
+            if (row.length < 3) continue;
 
-            // Parse data
             String sourceName = row[0];
             String targetName = row[1];
-            double score = Double.parseDouble(row[2]);
-            
-            // Create edges and add into current view
+            double score = 0.0;
+            try {
+                score = Double.parseDouble(row[2]);
+            } catch (NumberFormatException ignored) {}
+
             CyNode sourceNode = nodeMap.get(sourceName);
             CyNode targetNode = nodeMap.get(targetName);
             if (sourceNode != null && targetNode != null) {
                 CyEdge newEdge = currentNetwork.addEdge(sourceNode, targetNode, true);
-                var edgeRow = currentNetwork.getRow(newEdge);
-                edgeRow.set(CyEdge.INTERACTION, "Predicted");
-                edgeRow.set("confidence_score", score);
-                edgeRow.set(CyNetwork.NAME, sourceName + " (Predicted) " + targetName);
+                currentNetwork.getRow(newEdge).set(CyEdge.INTERACTION, "Predicted");
+                currentNetwork.getRow(newEdge).set("confidence_score", score);
+                currentNetwork.getRow(newEdge).set(CyNetwork.NAME, sourceName + " (Predicted) " + targetName);
+                added++;
             }
-
-            // Refresh progress rate
-            currentCount++;
-            // taskMonitor.setProgress((double) currentCount / totalEdges);
         }
 
         // Refresh view
         CyNetworkView currentView = appManager.getCurrentNetworkView();
         if (currentView != null) {
-            // taskMonitor.setStatusMessage("Updating network view...");
             currentView.updateView();
         }
+
+        JOptionPane.showMessageDialog(null, "Import complete: " + added + " edges added.");
     }
 }

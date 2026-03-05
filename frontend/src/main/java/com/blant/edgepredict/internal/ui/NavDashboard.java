@@ -2,8 +2,6 @@ package com.blant.edgepredict.internal.ui;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.TaskIterator;
@@ -66,24 +64,22 @@ public class NavDashboard extends JFrame {
         setLayout(new FlowLayout(FlowLayout.LEFT));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-
         JLabel subSample = new JLabel("Sample Method");
         subSample.setPreferredSize(new Dimension(250, 25));
 
         String[] arrSample = new String[1];
-		arrSample[0] = "MCRC";
-		JComboBox<String> jcbSample = new JComboBox<String>(arrSample);
+        arrSample[0] = "MCRC";
+        JComboBox<String> jcbSample = new JComboBox<String>(arrSample);
         jcbSample.setPreferredSize(new Dimension(200, 25));
-
 
         JLabel subPrec = new JLabel("Precision Digits");
         subPrec.setPreferredSize(new Dimension(250, 25));
 
         Integer[] arrPrec = new Integer[5];
-		for (int i = 0; i < arrPrec.length; i++) {
-			arrPrec[i] = i + 1;
-		}
-		JComboBox<Integer> jcbPrec = new JComboBox<Integer>(arrPrec);
+        for (int i = 0; i < arrPrec.length; i++) {
+            arrPrec[i] = i + 1;
+        }
+        JComboBox<Integer> jcbPrec = new JComboBox<Integer>(arrPrec);
         jcbPrec.setPreferredSize(new Dimension(200, 25));
 
         JLabel subK = new JLabel("K-values");
@@ -124,10 +120,11 @@ public class NavDashboard extends JFrame {
         });
         exportBtn.setPreferredSize(new Dimension(145, 25));
 
+        // Button: Import SIF
         JButton importBtn = new JButton("Import Network from SIF");
         importBtn.addActionListener(e -> {
             try {
-                new ImportGraph(applicationManager, fileUtil).importFromFile();;
+                new ImportGraph(applicationManager, fileUtil).importFile();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage());
             }
@@ -144,6 +141,15 @@ public class NavDashboard extends JFrame {
             }
         });
         sendBtn.setPreferredSize(new Dimension(145, 25));
+
+        // Button: Open Log Window
+        JButton logBtn = new JButton("BLANT Log");
+        logBtn.addActionListener(e -> {
+            BlantLogWindow logWindow = new BlantLogWindow();
+            logWindow.setVisible(true);
+            logWindow.startPolling();
+        });
+        logBtn.setPreferredSize(new Dimension(145, 25));
 
         add(subSample);
         add(jcbSample);
@@ -163,12 +169,15 @@ public class NavDashboard extends JFrame {
 
         add(runBtn);
         add(colorBtn);
-
         add(exportBtn);
         add(importBtn);
         add(sendBtn);
+        add(logBtn);
 
-        setPreferredSize(new Dimension(480, 300));
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int width = (int) (screenSize.width * 0.4);  // 40% of screen width
+        int height = (int) (screenSize.height * 0.4); // 40% of screen height
+        setPreferredSize(new Dimension(width, height));
         pack();
         setLocationRelativeTo(null);
         setResizable(false);
