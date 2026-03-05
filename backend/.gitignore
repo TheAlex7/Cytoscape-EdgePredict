@@ -2,3 +2,5 @@ blant
 hello
 mock_blant
 _objs
+__pycache__
+uploads
