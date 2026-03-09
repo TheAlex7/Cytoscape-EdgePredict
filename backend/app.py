@@ -70,7 +70,9 @@ def getResultAndFlush(job_id):
     buffer.seek(0)
 
     del jobs[job_id]
-    shutil.rmtree(UPLOAD_FOLDER)
+    
+    if os.path.exists(process_data["file_path"]):
+        os.remove(process_data["file_path"])
 
     return send_file(
         buffer,
