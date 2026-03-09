@@ -16,7 +16,8 @@ import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
-import com.blant.edgepredict.internal.task.LinkPredictionTask;
+
+
 import com.blant.edgepredict.internal.task.ExportGraph;
 import com.blant.edgepredict.internal.task.ImportGraph;
 import com.blant.edgepredict.internal.task.SendToBlant;
@@ -39,6 +40,7 @@ public class NavDashboard extends JFrame {
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
 
+
     private NavDashboard(TaskManager taskManager,
                          CyApplicationManager applicationManager,
                          CyNetworkViewWriterManager writerManager,
@@ -56,16 +58,18 @@ public class NavDashboard extends JFrame {
         this.applicationManager = applicationManager;
         this.writerManager = writerManager;
         this.fileUtil = fileUtil;
+
         this.vmm = vmm;
         this.vmfFactoryDiscrete = vmfFactoryDiscrete;
         this.vsFactory = vsFactory;
         this.networkFactory = networkFactory;
+
         this.networkManager = networkManager;
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
         this.layoutManager = layoutManager;
 
-        setLayout(new FlowLayout(FlowLayout.LEFT));
+        setLayout(new BorderLayout(10, 10));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // Dropdown: Sample Method
@@ -101,18 +105,6 @@ public class NavDashboard extends JFrame {
         JLabel subPrecWarn = new JLabel("<HTML>*Warning! Increasing precision digit will cause runtime increase in<br/>quadratic manner!</HTML>");
         subPrecWarn.setPreferredSize(new Dimension(450, 50));
 
-        // Button: Run Prediction
-        JButton runBtn = new JButton("Run Prediction");
-        runBtn.addActionListener(e -> taskManager.execute(new TaskIterator(new LinkPredictionTask())));
-        runBtn.setPreferredSize(new Dimension(145, 25));
-
-        // Button: Update Colors
-        JButton colorBtn = new JButton("Update Edge Colors");
-        colorBtn.addActionListener(e ->
-                VisualUtil.applyStyles(applicationManager.getCurrentNetworkView(), vmm, vmfFactoryDiscrete, vsFactory)
-        );
-        colorBtn.setPreferredSize(new Dimension(145, 25));
-
         // Button: Export SIF
         JButton exportBtn = new JButton("Export Network as SIF");
         exportBtn.addActionListener(e -> {
@@ -128,12 +120,21 @@ public class NavDashboard extends JFrame {
         JButton importBtn = new JButton("Import Network from SIF");
         importBtn.addActionListener(e -> {
             try {
-                new ImportGraph(networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager).importFile();
+                new ImportGraph(
+                        networkFactory,
+                        networkManager,
+                        networkViewFactory,
+                        networkViewManager,
+                        layoutManager,
+                        vmm,
+                        vmfFactoryDiscrete,
+                        vsFactory
+                ).importFile();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage());
             }
         });
-        importBtn.setPreferredSize(new Dimension(145, 25));
+        importBtn.setPreferredSize(new Dimension(145, 25));;
 
         // Button: Send to BLANT
         JButton sendBtn = new JButton("Send to BLANT");
@@ -154,32 +155,35 @@ public class NavDashboard extends JFrame {
         });
         logBtn.setPreferredSize(new Dimension(145, 25));
 
-        add(subSample);
-        add(jcbSample);
-        add(subPrec);
-        add(jcbPrec);
-        add(subK);
-        add(cbK3);
-        add(cbK4);
-        add(cbK5);
-        add(cbK6);
-        add(cbK7);
-        add(subBlank);
-        add(subPrecWarn);
-        add(runBtn);
-        add(colorBtn);
-        add(exportBtn);
-        add(importBtn);
-        add(sendBtn);
-        add(logBtn);
+        // Add components to dashboard for BLANT parameters
+        JPanel paramPanel = new JPanel(new GridLayout(0, 1, 5, 5));
+        paramPanel.add(subSample);
+        paramPanel.add(jcbSample);
+        paramPanel.add(subPrec);
+        paramPanel.add(jcbPrec);
+        paramPanel.add(subK);
+        paramPanel.add(cbK3);
+        paramPanel.add(cbK4);
+        paramPanel.add(cbK5);
+        paramPanel.add(cbK6);
+        paramPanel.add(cbK7);
+        paramPanel.add(subBlank);
+        paramPanel.add(subPrecWarn);
 
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        int width = (int) (screenSize.width * 0.4);
-        int height = (int) (screenSize.height * 0.4);
-        setPreferredSize(new Dimension(width, height));
+        add(paramPanel, BorderLayout.CENTER);
+
+        // Buttons at bottom
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        buttonPanel.add(exportBtn);
+        buttonPanel.add(importBtn);
+        buttonPanel.add(sendBtn);
+        buttonPanel.add(logBtn);
+
+        add(buttonPanel, BorderLayout.SOUTH);
+
         pack();
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 

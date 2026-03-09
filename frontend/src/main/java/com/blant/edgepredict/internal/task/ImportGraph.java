@@ -1,32 +1,25 @@
 package com.blant.edgepredict.internal.task;
 
-import org.cytoscape.model.CyEdge;
-import org.cytoscape.model.CyNetwork;
-import org.cytoscape.model.CyNetworkFactory;
-import org.cytoscape.model.CyNetworkManager;
-import org.cytoscape.model.CyNode;
-import org.cytoscape.view.layout.CyLayoutAlgorithm;
-import org.cytoscape.view.layout.CyLayoutAlgorithmManager;
-import org.cytoscape.view.model.CyNetworkView;
-import org.cytoscape.view.model.CyNetworkViewFactory;
-import org.cytoscape.view.model.CyNetworkViewManager;
+import org.cytoscape.model.*;
+import org.cytoscape.view.layout.*;
+import org.cytoscape.view.model.*;
+import org.cytoscape.view.presentation.property.BasicVisualLexicon;
 import org.cytoscape.work.TaskIterator;
 import org.cytoscape.work.TaskMonitor;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
+import com.blant.edgepredict.internal.util.VisualUtil;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.StringTokenizer;
+import java.util.*;
 
 import javax.swing.JOptionPane;
+
+import org.cytoscape.view.vizmap.*;
 
 public class ImportGraph {
 
@@ -36,33 +29,46 @@ public class ImportGraph {
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
 
-    public ImportGraph(CyNetworkFactory networkFactory,
-                       CyNetworkManager networkManager,
-                       CyNetworkViewFactory networkViewFactory,
-                       CyNetworkViewManager networkViewManager,
-                       CyLayoutAlgorithmManager layoutManager) {
+    private final VisualMappingManager vmm;
+    private final VisualMappingFunctionFactory vmf;
+    private final VisualStyleFactory vsFactory;
+
+    public ImportGraph(
+            CyNetworkFactory networkFactory,
+            CyNetworkManager networkManager,
+            CyNetworkViewFactory networkViewFactory,
+            CyNetworkViewManager networkViewManager,
+            CyLayoutAlgorithmManager layoutManager,
+            VisualMappingManager vmm,
+            VisualMappingFunctionFactory vmf,
+            VisualStyleFactory vsFactory) {
+
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
         this.layoutManager = layoutManager;
+
+        this.vmm = vmm;
+        this.vmf = vmf;
+        this.vsFactory = vsFactory;
     }
 
     public void importFile() throws Exception {
 
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
 
-        // Check a job ID is available
         String jobId = BlantConfig.getJobId();
         if (jobId == null || jobId.isBlank()) {
-            JOptionPane.showMessageDialog(null, "No BLANT job ID found. Please run 'Send to BLANT' first.");
+            JOptionPane.showMessageDialog(null,
+                    "No BLANT job ID found. Please run 'Send to BLANT' first.");
             return;
         }
+
         BlantPoller poller = BlantPoller.getInstance();
 
         logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
 
-        // Ping the result endpoint
         URL url = new URL(BlantConfig.RESULTS_URL + jobId);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
@@ -72,17 +78,20 @@ public class ImportGraph {
             String error = conn.getErrorStream() != null
                     ? new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)
                     : "Unknown error";
+
             logWindow.appendLog("[ERROR] Failed to fetch result: " + error);
-            JOptionPane.showMessageDialog(null, "Failed to fetch BLANT result: " + error);
+            JOptionPane.showMessageDialog(null,
+                    "Failed to fetch BLANT result: " + error);
             return;
         }
 
         String responseText = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
         logWindow.appendLog("[INFO] Result received. Parsing network...");
         logWindow.appendLog("[DEBUG] Raw response:\n" + responseText);
+
         poller.stopPolling();
 
-        // Create a new network
         CyNetwork network = networkFactory.createNetwork();
         network.getDefaultNetworkTable().getRow(network.getSUID()).set("name", "BLANT Result");
 
@@ -90,35 +99,33 @@ public class ImportGraph {
             network.getDefaultEdgeTable().createColumn("confidence_score", Double.class, false);
         }
 
-        // Parse response lines into edge data
-        List<String[]> edgeDataList = new ArrayList<>();
-        for (String line : responseText.split("\n")) {
-            line = line.trim();
-            if (line.isEmpty() || line.startsWith("#")) continue;
-            StringTokenizer st = new StringTokenizer(line, " \t");
-            int count = st.countTokens();
-            String[] row = new String[count];
-            for (int i = 0; i < count; i++) {
-                row[i] = st.nextToken();
-            }
-            edgeDataList.add(row);
-        }
-
-        // Add nodes and edges
         Map<String, CyNode> nodeMap = new HashMap<>();
         int added = 0;
 
-        for (String[] row : edgeDataList) {
-            if (row.length < 3) continue;
+        for (String line : responseText.split("\n")) {
+
+            line = line.trim();
+
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+
+            String[] row = line.split("\\s+");
+
+            if (row.length < 4) {
+                logWindow.appendLog("[WARN] Skipping malformed line: " + line);
+                continue;
+            }
 
             String sourceName = row[0];
             String interaction = row[1];
             String targetName = row[2];
+
             Double score = null;
-            if (row.length >= 4) {
-                try {
-                    score = Double.parseDouble(row[3]);
-                } catch (NumberFormatException ignored) {}
+            try {
+                score = Double.parseDouble(row[3]);
+            } catch (Exception e) {
+                logWindow.appendLog("[WARN] Could not parse score: " + line);
             }
 
             CyNode source = nodeMap.computeIfAbsent(sourceName, name -> {
@@ -134,22 +141,37 @@ public class ImportGraph {
             });
 
             CyEdge edge = network.addEdge(source, target, false);
-            network.getRow(edge).set(CyNetwork.NAME, sourceName + " (" + interaction + ") " + targetName);
+
+            network.getRow(edge).set(CyNetwork.NAME,
+                    sourceName + " (" + interaction + ") " + targetName);
+
             network.getRow(edge).set(CyEdge.INTERACTION, interaction);
+
             if (score != null) {
                 network.getRow(edge).set("confidence_score", score);
             }
+
             added++;
+
+            logWindow.appendLog("[DEBUG] Edge: " +
+                    sourceName + " -> " +
+                    targetName + " (" +
+                    interaction + ") score=" + score);
         }
 
-        // Register network and create view
         networkManager.addNetwork(network);
+
         CyNetworkView view = networkViewFactory.createNetworkView(network);
         networkViewManager.addNetworkView(view);
 
-        // Apply Cytoscape's default layout
         CyLayoutAlgorithm layout = layoutManager.getDefaultLayout();
-        TaskIterator it = layout.createTaskIterator(view, layout.getDefaultLayoutContext(), CyLayoutAlgorithm.ALL_NODE_VIEWS, null);
+
+        TaskIterator it = layout.createTaskIterator(
+                view,
+                layout.getDefaultLayoutContext(),
+                CyLayoutAlgorithm.ALL_NODE_VIEWS,
+                null);
+
         while (it.hasNext()) {
             it.next().run(new TaskMonitor() {
                 public void setTitle(String t) {}
@@ -158,9 +180,22 @@ public class ImportGraph {
                 public void showMessage(TaskMonitor.Level l, String m) {}
             });
         }
+
+        // Apply visual styles first (colors, sizes, etc.)
+        VisualUtil.applyStyles(view, vmm, vmf, vsFactory);
+
+        // Set node labels and tooltips to the node name
+        view.getNodeViews().forEach(nv -> {
+            String name = network.getRow(nv.getModel()).get(CyNetwork.NAME, String.class);
+            nv.setVisualProperty(BasicVisualLexicon.NODE_LABEL, name);
+            nv.setVisualProperty(BasicVisualLexicon.NODE_TOOLTIP, name);
+        });
+
         view.updateView();
 
         logWindow.appendLog("[INFO] Network loaded: " + added + " edges added.");
-        JOptionPane.showMessageDialog(null, "Import complete: " + added + " edges added.");
+
+        JOptionPane.showMessageDialog(null,
+                "Import complete: " + added + " edges added.");
     }
 }
