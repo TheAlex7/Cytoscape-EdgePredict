@@ -1,3 +1,7 @@
 _objs
 __pycache__
 uploads
+*.pyc
+.env
+venv/
+.git/

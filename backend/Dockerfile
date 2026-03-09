@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 COPY mock ./mock
 
@@ -29,4 +29,7 @@ COPY app.py .
 
 EXPOSE 5000
 
-CMD ["python", "app.py"]
+# production
+CMD ["gunicorn", "server:app", "-b", "0.0.0.0:5000"]
+
+# CMD ["python", "app.py"]
