@@ -9,6 +9,7 @@ import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.util.swing.FileUtil;
+import org.cytoscape.view.layout.CyLayoutAlgorithmManager;
 import org.cytoscape.view.model.CyNetworkViewFactory;
 import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.vizmap.VisualMappingManager;
@@ -19,7 +20,6 @@ import org.osgi.framework.BundleContext;
 import com.blant.edgepredict.internal.ui.MenuAction;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
-// This class is the entry point of the app and registers the menu item and dashboard
 public class CyActivator extends AbstractCyActivator {
 
     @Override
@@ -35,13 +35,14 @@ public class CyActivator extends AbstractCyActivator {
         CyNetworkManager networkManager = getService(bc, CyNetworkManager.class);
         CyNetworkViewFactory networkViewFactory = getService(bc, CyNetworkViewFactory.class);
         CyNetworkViewManager networkViewManager = getService(bc, CyNetworkViewManager.class);
+        CyLayoutAlgorithmManager layoutManager = getService(bc, CyLayoutAlgorithmManager.class);
 
         if (appManager.getCurrentNetworkView() != null) {
             VisualUtil.applyStyles(appManager.getCurrentNetworkView(), vmm, vmfFactoryDiscrete, vsFactory);
         }
 
         MenuAction menuAction = new MenuAction(appManager, taskManager, writerManager, fileUtil, vmm, vmfFactoryDiscrete, vsFactory,
-                networkFactory, networkManager, networkViewFactory, networkViewManager);
+                networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager);
         registerService(bc, menuAction, CyAction.class, new Properties());
     }
 }

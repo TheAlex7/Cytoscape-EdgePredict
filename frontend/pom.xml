@@ -11,7 +11,7 @@
   <groupId>com.blant.edgepredict</groupId>
   <artifactId>BLANT</artifactId>
   <packaging>bundle</packaging>
-  <version>1.18</version>
+  <version>1.28</version>
   <name>BLANT for Cytoscape</name>
 
   <build>
@@ -84,5 +84,11 @@
         <version>${cytoscape.api.version}</version>
         <scope>provided</scope>
     </dependency>
+    <dependency>
+    <groupId>org.cytoscape</groupId>
+    <artifactId>layout-api</artifactId>
+    <version>${cytoscape.api.version}</version>
+    <scope>provided</scope>
+</dependency>
   </dependencies>
 </project>
