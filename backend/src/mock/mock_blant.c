@@ -5,6 +5,7 @@
 #include <string.h>
 
 #define MAX_LINE_LEN 4096
+const char *MOCK_DATA_PATH = "src/mock/mock_output.txt";
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -12,7 +13,8 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    const char *filename = argv[1];
+    const char *filename = MOCK_DATA_PATH;
+    // const char *filename = argv[1]; // switch to this to get echo 
     FILE *fp = fopen(filename, "r");
     if (!fp) {
         fprintf(stderr, "Error: could not open file '%s'\n", filename);

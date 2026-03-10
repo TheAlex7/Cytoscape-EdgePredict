@@ -24,7 +24,7 @@ import java.nio.charset.StandardCharsets;
 public class BlantConfig {
 
     // Root URL for the BLANT server
-    public static String BLANT_URL = "http://localhost:55161";
+    public static String BLANT_URL = "http://localhost:49161";
 
     // URL for submitting jobs
     public static String SUBMIT_URL = BLANT_URL + "/blant";

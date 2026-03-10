@@ -11,13 +11,14 @@ import shutil
 app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
-# app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # actually not needed locally for now
+# app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # actually not needed for now
 VALID_EXTENSIONS = {'txt', 'csv', 'sif'}
 UPLOAD_FOLDER = "uploads"
-STDOUT_FOLDER = "job_results" # might be useful later
+RESULTS_FOLDER = "job_results"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-# Store running jobs locally
+# Store running jobs globally
 jobs = dict()
 """
 # Jobs should be in this format:
@@ -36,43 +37,24 @@ def index():
 
 @app.route('/hello', methods=['GET'])
 def sayHello():
-    
-    try:
-        # Execute shell script
-        result = subprocess.run(['bash', './scripts/say_hello.sh'],
-                                capture_output=True, 
-                                text=True)
-        
-        return jsonify({
-            "status": "success",
-            "message_from_c": result.stdout.strip() # C's stdout
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"message": "hello world!"}), 200
 
 # error message for files exceeding the size limit
 @app.errorhandler(413)
 def fileTooLarge(error):
     return jsonify({"error": "File is too large. Max limit is 1MB"}), 413
 
-# in order to support progress checking, had to split up the current 
-# blant call into multiple calls as per RESTful API design
 @app.route("/results/<job_id>")
-def getResultAndFlush(job_id):
+def getResult(job_id):
     if not job_id in jobs:
         return jsonify({"error": "Job not found."}), 400
     process_data = jobs[job_id]
     base_name = process_data["base_name"]
 
     buffer = io.BytesIO()
-    buffer.write(process_data["stdout"])
+    with open(process_data["result_path"], "r", encoding="utf-8") as file:
+        buffer.write(file.read().encode("utf-8"))
     buffer.seek(0)
-
-    del jobs[job_id]
-    
-    if os.path.exists(process_data["file_path"]):
-        os.remove(process_data["file_path"])
 
     return send_file(
         buffer,
@@ -81,6 +63,21 @@ def getResultAndFlush(job_id):
         mimetype='text/plain'
     )
 
+@app.route("/clear-all")
+def flushAll():
+    shutil.rmtree(UPLOAD_FOLDER)
+    shutil.rmtree(RESULTS_FOLDER)
+    del jobs
+    jobs = dict()
+
+@app.route("/clear/<job_id>")
+def flushJob(job_id):
+    if not job_id in jobs:
+        return jsonify({"error": "Job not found."}), 400
+
+    os.remove(jobs[job_id]["upload_path"])
+    os.remove(jobs[job_id]["result_path"])
+    del jobs[job_id]
 
 @app.route("/blant_stderr/<job_id>")
 def getStderr(job_id):
@@ -99,9 +96,10 @@ def getStderr(job_id):
 
     return Response(generate(), mimetype="text/event-stream")
 
-
+# for now it'll give float 0, or 1.0 to represent "done" / "not done"
+# (future goal) TODO: progress should be an estimate depending on current epoch and precision
 @app.route("/progress/<job_id>")
-def checkProgress(job_id): # for now it'll give float 0, or 1.0 to represent "done" / "not done"
+def checkProgress(job_id): 
     if not job_id in jobs:
         return jsonify({"error": "Job not found."}), 400
     process_data = jobs[job_id]
@@ -129,21 +127,24 @@ def startBlant():
         return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
     file = request.files["file"]
-    job_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_FOLDER, job_id + "_" + file.filename.rsplit('.', 1)[1].lower()) #<job_id>_<user_file_ext>
-    file.save(file_path)
+    job_id = str(uuid.uuid4())[:5]
+    upload_path = os.path.join(UPLOAD_FOLDER, job_id + "." + file.filename.rsplit('.', 1)[1].lower()) #<job_id>.<user_file_ext>
+    result_path = os.path.join(RESULTS_FOLDER, job_id)
+    file.save(upload_path)
+
+    cleaned_base_name = file.filename.rsplit('.', 1)[0].lower().replace(".", "_") # just in case given weird file names
 
     jobs[job_id] = {
         "finished": False, 
-        "stderr_queue": queue.Queue(), 
-        "process": None,
-        "file_path": file_path,
-        "base_name": file.filename.rsplit('.', 1)[0].lower()
+        "stderr_queue": queue.Queue(),
+        "upload_path": upload_path,
+        "result_path": result_path,
+        "base_name": cleaned_base_name
     }
 
     thread = threading.Thread(
         target=run_blant,
-        args=(jobs, job_id, file_path)
+        args=(jobs, job_id, upload_path, result_path)
     )
     thread.start() # separate thread to continue handling other calls
 

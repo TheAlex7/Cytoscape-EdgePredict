@@ -5,3 +5,4 @@ _objs
 __pycache__
 uploads
 .env
+job_results

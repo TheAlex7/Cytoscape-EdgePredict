@@ -1,15 +1,13 @@
 CC = gcc
-OBJ_DIR = mock/_objs
+OBJ_DIR = src/mock/_objs
+MOCK_SRC_DIR = src/mock
 
-all: $(OBJ_DIR) $(OBJ_DIR)/hello $(OBJ_DIR)/mock_blant
+all: $(OBJ_DIR) $(OBJ_DIR)/mock_blant
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/hello: mock/hello.c
-	$(CC) $< -o $@
-
-$(OBJ_DIR)/mock_blant: mock/mock_blant.c
+$(OBJ_DIR)/mock_blant: $(MOCK_SRC_DIR)/mock_blant.c
 	$(CC) $< -o $@
 
 clean:

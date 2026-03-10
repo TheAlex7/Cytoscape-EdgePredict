@@ -1,44 +1,37 @@
-import subprocess, threading
+import subprocess, threading, os
 
-def run_blant(jobs, job_id, file_path):
+def run_blant(jobs, job_id, input_path, out_path):
     if not job_id in jobs:
-        return -1
+        return -1 
     process_data = jobs[job_id]
+
     process_data["finished"] = False
 
+    # TODO: fix bug where threads are overlapping
     process = subprocess.Popen(
-        ["bash", "./run_mock.sh", file_path],
+        ["bash", "./src/scripts/run_mock.sh", input_path],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1
     )
 
-    process_data["process"] = process
-    stdout_lines = []
-
-    def read_stdout():
-        for line in process.stdout:
-            print(f"[STDOUT] {line.rstrip()}", flush=True)
-            stdout_lines.append(line)
-
+    # Thread to read stderr continuously through queue
     def read_stderr():
         for line in process.stderr:
-            print(f"[STDERR] {line.rstrip()}", flush=True)
-            process_data["stderr_queue"].put(line.rstrip())
+            process_data["stderr_queue"].put(line)
+        process.stderr.close()
 
-    stdout_thread = threading.Thread(target=read_stdout)
     stderr_thread = threading.Thread(target=read_stderr)
-
-    stdout_thread.start()
     stderr_thread.start()
-
-    stdout_thread.join()
+    stdout, _ = process.communicate()
     stderr_thread.join()
 
-    process.wait()
+    # stdout_file = stdout.encode('utf-8')
+    try:
+        with open(out_path, 'w', encoding='utf-8') as file:
+            file.write(stdout)
+    except IOError as e:
+        print(f"Error writing to file: {e}")
 
-    print(f"[DEBUG] stdout_lines length: {len(stdout_lines)}", flush=True)
-
-    process_data["stdout"] = "".join(stdout_lines).encode("utf-8")
     process_data["finished"] = True
