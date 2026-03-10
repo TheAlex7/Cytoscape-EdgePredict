@@ -1,6 +1,4 @@
-import subprocess
-import threading
-
+import subprocess, threading
 
 def run_blant(jobs, job_id, file_path):
     if not job_id in jobs:

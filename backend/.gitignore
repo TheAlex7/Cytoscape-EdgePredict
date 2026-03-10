@@ -4,3 +4,4 @@ mock_blant
 _objs
 __pycache__
 uploads
+.env

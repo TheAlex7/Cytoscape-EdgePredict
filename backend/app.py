@@ -149,45 +149,5 @@ def startBlant():
 
     return jsonify({"job_id": job_id})
 
-### deprecated
-# @app.route('/blant', methods=['POST'])
-# def sendToBlant():
-#     if 'file' not in request.files:
-#         return jsonify({"error": "No file part"}), 400
-    
-#     file = request.files['file']
-
-#     if file.filename == '':
-#         return jsonify({"error": "No selected file"}), 400
-
-#     if not isValidFile(file.filename):
-#         return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
-
-#     try:
-#         graph_file = file.read().decode('utf-8') # we don't do anything with it just yet
-#         blant_result = subprocess.run(['bash', './run_mock.sh'],
-#                                     capture_output=True, 
-#                                     text=True)
-
-#         if blant_result.returncode != 0:
-#             return jsonify({
-#                 "error": "blant process failed",
-#                 "stderr": blant_result.stderr
-#             }), 500
-        
-#         buffer = io.BytesIO()
-#         buffer.write(blant_result.stdout.encode('utf-8'))
-#         buffer.seek(0)
-
-#         return send_file(
-#             buffer,
-#             as_attachment=True,
-#             download_name=f'{file.filename.rsplit('.', 1)[0].lower()}_blant_res.txt',
-#             mimetype='text/plain'
-#         )
-#     except Exception as e:
-#         return jsonify({"error": "Failed to process text file. Ensure it is UTF-8 encoded.",
-#                         "raw": str(e)}), 500
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
