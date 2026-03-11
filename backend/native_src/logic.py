@@ -9,7 +9,7 @@ def run_blant(jobs, job_id, input_path, out_path):
 
     # TODO: fix bug where threads are overlapping
     process = subprocess.Popen(
-        ["bash", "./src/scripts/run_mock.sh", input_path],
+        ["bash", "./native_src/scripts/run_mock.sh", input_path],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

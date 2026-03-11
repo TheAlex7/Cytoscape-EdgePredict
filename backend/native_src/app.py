@@ -5,14 +5,14 @@ import threading
 import queue
 import os
 import uuid
-from src.logic import *
+from native_src.logic import *
 import shutil
 
 app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
 # app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # actually not needed for now
-VALID_EXTENSIONS = {'txt', 'csv', 'sif'}
+VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'} # TODO: double check which files are allowed, maybe get rid of extension validator?
 UPLOAD_FOLDER = "uploads"
 RESULTS_FOLDER = "job_results"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -112,7 +112,7 @@ def checkProgress(job_id):
 def isValidFile(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
 
-
+# TODO: add program parameters
 @app.route("/blant", methods=["POST"])
 def startBlant():
     if 'file' not in request.files:
@@ -127,7 +127,7 @@ def startBlant():
         return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
     file = request.files["file"]
-    job_id = str(uuid.uuid4())[:5]
+    job_id = str(uuid.uuid4())#[:5] # shortened for development
     upload_path = os.path.join(UPLOAD_FOLDER, job_id + "." + file.filename.rsplit('.', 1)[1].lower()) #<job_id>.<user_file_ext>
     result_path = os.path.join(RESULTS_FOLDER, job_id)
     file.save(upload_path)
