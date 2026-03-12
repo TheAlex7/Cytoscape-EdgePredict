@@ -1,6 +1,6 @@
 import subprocess, threading, os
 
-def run_blant(jobs, job_id, input_path, out_path):
+def run_blant(jobs, job_id, input_path, out_path, k="4", sampling_method = "MCMC"):
     if not job_id in jobs:
         return -1 
     process_data = jobs[job_id]
@@ -10,6 +10,9 @@ def run_blant(jobs, job_id, input_path, out_path):
     # TODO: fix bug where threads are overlapping
     process = subprocess.Popen(
         ["bash", "./native_src/scripts/run_mock.sh", input_path],
+        # ["bash", "./blant", "-k", k, "-s", sampling_method, "-mp", input_path],
+        cwd = "/app",
+        # shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

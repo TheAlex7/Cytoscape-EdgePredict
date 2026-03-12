@@ -11,7 +11,7 @@ import shutil
 app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
-# app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # actually not needed for now
+# app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # TODO: confirm what size we should allow
 VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'} # TODO: double check which files are allowed, maybe get rid of extension validator?
 UPLOAD_FOLDER = "uploads"
 RESULTS_FOLDER = "job_results"
@@ -19,6 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
 # Store running jobs globally
+global jobs 
 jobs = dict()
 """
 # Jobs should be in this format:
@@ -44,31 +45,16 @@ def sayHello():
 def fileTooLarge(error):
     return jsonify({"error": "File is too large. Max limit is 1MB"}), 413
 
-@app.route("/results/<job_id>")
-def getResult(job_id):
-    if not job_id in jobs:
-        return jsonify({"error": "Job not found."}), 400
-    process_data = jobs[job_id]
-    base_name = process_data["base_name"]
-
-    buffer = io.BytesIO()
-    with open(process_data["result_path"], "r", encoding="utf-8") as file:
-        buffer.write(file.read().encode("utf-8"))
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f'{base_name}_blant_res.txt',
-        mimetype='text/plain'
-    )
-
 @app.route("/clear-all")
 def flushAll():
     shutil.rmtree(UPLOAD_FOLDER)
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
     shutil.rmtree(RESULTS_FOLDER)
-    del jobs
-    jobs = dict()
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+
+    jobs.clear()
+    return jsonify({"message": "successfully cleared all job data"}), 200
 
 @app.route("/clear/<job_id>")
 def flushJob(job_id):
@@ -78,6 +64,7 @@ def flushJob(job_id):
     os.remove(jobs[job_id]["upload_path"])
     os.remove(jobs[job_id]["result_path"])
     del jobs[job_id]
+    return jsonify({"message": "successfully cleared specified job data"}), 200
 
 @app.route("/blant_stderr/<job_id>")
 def getStderr(job_id):
@@ -97,6 +84,29 @@ def getStderr(job_id):
     return Response(generate(), mimetype="text/event-stream")
 
 # for now it'll give float 0, or 1.0 to represent "done" / "not done"
+@app.route("/results/<job_id>")
+def getResult(job_id):
+    if not job_id in jobs:
+        return jsonify({"error": "Job not found."}), 400
+    process_data = jobs[job_id]
+
+    if not process_data["finished"]:
+        return jsonify({"error": "Job not done."}), 400
+    
+    base_name = process_data["base_name"]
+
+    buffer = io.BytesIO()
+    with open(process_data["result_path"], "r", encoding="utf-8") as file:
+        buffer.write(file.read().encode("utf-8"))
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f'{base_name}_blant_res.txt',
+        mimetype='text/plain'
+    )
+
 # (future goal) TODO: progress should be an estimate depending on current epoch and precision
 @app.route("/progress/<job_id>")
 def checkProgress(job_id): 
@@ -126,8 +136,14 @@ def startBlant():
     if not isValidFile(file.filename):
         return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
+    k = request.args.get("k", default="4", type=str)        # default k=3
+    sampling_method = request.args.get("method", default="MCMC") #TODO: confirm default method and add valid method checker
+
+    if not k.isnumeric() or int(k) < 3 or int(k) > 8:
+        return jsonify({"error": f"k must be integer in range [3,8]."}), 400
+
     file = request.files["file"]
-    job_id = str(uuid.uuid4())#[:5] # shortened for development
+    job_id = str(uuid.uuid4())[:5] # shortened for development
     upload_path = os.path.join(UPLOAD_FOLDER, job_id + "." + file.filename.rsplit('.', 1)[1].lower()) #<job_id>.<user_file_ext>
     result_path = os.path.join(RESULTS_FOLDER, job_id)
     file.save(upload_path)
@@ -144,7 +160,7 @@ def startBlant():
 
     thread = threading.Thread(
         target=run_blant,
-        args=(jobs, job_id, upload_path, result_path)
+        args=(jobs, job_id, upload_path, result_path, k, sampling_method)
     )
     thread.start() # separate thread to continue handling other calls
 

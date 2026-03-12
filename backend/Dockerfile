@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     dos2unix \
     time \
+    gawk \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -41,6 +42,7 @@ RUN chmod +x native_src/mock/_objs/mock_blant
 
 # comment out if want to test
 RUN ./regression-test-all.sh -make
+RUN chmod +x ./blant
 
 # production
 # CMD ["gunicorn", "server:app", "-b", "0.0.0.0:5000"]
