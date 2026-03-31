@@ -1,9 +1,27 @@
 package com.blant.edgepredict.internal.task;
 
-import org.cytoscape.model.*;
-import org.cytoscape.view.layout.*;
-import org.cytoscape.view.model.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.swing.JOptionPane;
+
+import org.cytoscape.model.CyEdge;
+import org.cytoscape.model.CyNetwork;
+import org.cytoscape.model.CyNetworkFactory;
+import org.cytoscape.model.CyNetworkManager;
+import org.cytoscape.model.CyNode;
+import org.cytoscape.view.layout.CyLayoutAlgorithm;
+import org.cytoscape.view.layout.CyLayoutAlgorithmManager;
+import org.cytoscape.view.model.CyNetworkView;
+import org.cytoscape.view.model.CyNetworkViewFactory;
+import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.presentation.property.BasicVisualLexicon;
+import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
+import org.cytoscape.view.vizmap.VisualMappingManager;
+import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskIterator;
 import org.cytoscape.work.TaskMonitor;
 
@@ -11,15 +29,6 @@ import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.VisualUtil;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
-import javax.swing.JOptionPane;
-
-import org.cytoscape.view.vizmap.*;
 
 public class ImportGraph {
 
@@ -101,6 +110,8 @@ public class ImportGraph {
 
         Map<String, CyNode> nodeMap = new HashMap<>();
         int added = 0;
+
+        VisualUtil.showTableDialogue(responseText);
 
         for (String line : responseText.split("\n")) {
 
@@ -197,5 +208,6 @@ public class ImportGraph {
 
         JOptionPane.showMessageDialog(null,
                 "Import complete: " + added + " edges added.");
+        
     }
 }
