@@ -1,6 +1,19 @@
 package com.blant.edgepredict.internal.ui;
 
-import javax.swing.*;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
+import java.awt.GridLayout;
+
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.event.ChangeListener;
 
 import java.awt.*;
@@ -20,7 +33,9 @@ import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.presentation.property.BasicVisualLexicon;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
+import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
+import org.cytoscape.work.TaskManager;
 
 import com.blant.edgepredict.internal.task.ExportGraph;
 import com.blant.edgepredict.internal.task.ImportGraph;
@@ -30,6 +45,7 @@ public class NavDashboard extends JFrame {
 
     private static NavDashboard instance;
 
+    // What are these variables for? Maybe we don't need these anymore
     private final TaskManager taskManager;
     private final CyApplicationManager applicationManager;
     private final CyNetworkViewWriterManager writerManager;
@@ -43,7 +59,16 @@ public class NavDashboard extends JFrame {
     private final CyNetworkViewFactory networkViewFactory;
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
-
+    
+    // Input variables
+    private String sampleMethod;
+    private int precisionDigits;
+    private int kVal;
+    private boolean isSaved;
+    private String graphType = "Undirected";
+    private CardLayout cardLayout = new CardLayout();
+    private JPanel kValCards = new JPanel(cardLayout);
+  
     // Slider state
     private JSlider confidenceSlider;
     private JLabel sliderLabel;
@@ -83,46 +108,15 @@ public class NavDashboard extends JFrame {
         setLayout(new BorderLayout(10, 10));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // --- BLANT Parameters Panel ---
-        JLabel subSample = new JLabel("Sample Method");
-        subSample.setPreferredSize(new Dimension(250, 25));
-        JComboBox<String> jcbSample = new JComboBox<>(new String[]{"MCRC"});
-        jcbSample.setPreferredSize(new Dimension(200, 25));
-
-        JLabel subPrec = new JLabel("Precision Digits");
-        subPrec.setPreferredSize(new Dimension(250, 25));
-        Integer[] arrPrec = new Integer[5];
-        for (int i = 0; i < arrPrec.length; i++) arrPrec[i] = i + 1;
-        JComboBox<Integer> jcbPrec = new JComboBox<>(arrPrec);
-        jcbPrec.setPreferredSize(new Dimension(200, 25));
-
-        JLabel subK = new JLabel("K-values");
-        subK.setPreferredSize(new Dimension(250, 25));
-        JCheckBox cbK3 = new JCheckBox("3");
-        JCheckBox cbK4 = new JCheckBox("4");
-        JCheckBox cbK5 = new JCheckBox("5");
-        JCheckBox cbK6 = new JCheckBox("6");
-        JCheckBox cbK7 = new JCheckBox("7");
-
-        JLabel subBlank = new JLabel("");
-        subBlank.setPreferredSize(new Dimension(450, 25));
-
-        JLabel subPrecWarn = new JLabel("<HTML>*Warning! Increasing precision digit will cause runtime increase in<br/>quadratic manner!</HTML>");
-        subPrecWarn.setPreferredSize(new Dimension(450, 50));
-
-        JPanel paramPanel = new JPanel(new GridLayout(0, 1, 5, 5));
-        paramPanel.add(subSample);
-        paramPanel.add(jcbSample);
-        paramPanel.add(subPrec);
-        paramPanel.add(jcbPrec);
-        paramPanel.add(subK);
-        paramPanel.add(cbK3);
-        paramPanel.add(cbK4);
-        paramPanel.add(cbK5);
-        paramPanel.add(cbK6);
-        paramPanel.add(cbK7);
-        paramPanel.add(subBlank);
-        paramPanel.add(subPrecWarn);
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        
+        mainPanel.add(SampleMethodJPanel());
+        mainPanel.add(PrecisionDigitspJPanel());
+        mainPanel.add(GraphTypeJPanel());
+        mainPanel.add(kValJPanel());
+        mainPanel.add(chkSavJPanel());        
+        add(mainPanel, BorderLayout.CENTER);
 
         // --- Confidence Slider Panel ---
         sliderLabel = new JLabel("Confidence Threshold: —");
@@ -181,7 +175,8 @@ public class NavDashboard extends JFrame {
         JButton sendBtn = new JButton("Send to BLANT");
         sendBtn.addActionListener(e -> {
             try {
-                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager).send();
+                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, 
+                    this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).send();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
             }
@@ -195,8 +190,9 @@ public class NavDashboard extends JFrame {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         buttonPanel.add(exportBtn);
         buttonPanel.add(importBtn);
-        buttonPanel.add(sendBtn);
         buttonPanel.add(logBtn);
+        buttonPanel.add(arrayBtn);
+        buttonPanel.add(sendBtn);
 
         // --- Layout ---
         add(sliderPanel, BorderLayout.NORTH);
@@ -205,10 +201,88 @@ public class NavDashboard extends JFrame {
 
         pack();
         setLocationRelativeTo(null);
-        setResizable(true);
+        setResizable(false);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 
+    private JPanel SampleMethodJPanel(){
+        JPanel panel = new JPanel(new GridLayout(2, 1));
+
+        JLabel subSample = new JLabel("Sample Method");
+
+        String[] arrSample = {"MCMC (Markov Chain Monte Carlo)",
+        "NBE (Node Based Expansion)",
+        "EBE (Edge Based Expansion)",
+        "RES (Reservior sampling)",
+        "AR (accept/reject)"};
+        JComboBox<String> jcbSample = new JComboBox<>(arrSample);
+        jcbSample.addActionListener(e -> { this.sampleMethod = (String) jcbSample.getSelectedItem(); });
+
+        panel.add(subSample);
+        panel.add(jcbSample);
+        return panel;
+    }
+
+    private JPanel PrecisionDigitspJPanel() {
+        JPanel panel = new JPanel(new GridLayout(3, 1));
+
+        JLabel subPrec = new JLabel("Precision Digits");
+
+        Integer[] arrPrec = {1, 2, 3, 4, 5};
+        JComboBox<Integer> jcbPrec = new JComboBox<>(arrPrec);
+        jcbPrec.addActionListener(e -> { this.precisionDigits = (int) jcbPrec.getSelectedItem(); });
+
+        JLabel subPrecWarn = new JLabel("*Warning! Increasing precision digit will cause runtime increase in quadratic manner!");
+
+        panel.add(subPrec);
+        panel.add(jcbPrec);
+        panel.add(subPrecWarn);
+        return panel;
+    }
+
+    private JPanel GraphTypeJPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 1));
+
+        JLabel subType = new JLabel("Graph Type");
+        String[] arrType = {"Undirected", "Directed"};
+        JComboBox<String> jcbType = new JComboBox<>(arrType);
+        jcbType.addActionListener(e -> { 
+            this.graphType = (String) jcbType.getSelectedItem(); 
+            cardLayout.show(this.kValCards, this.graphType);
+        });
+
+        panel.add(subType);
+        panel.add(jcbType);
+        return panel;
+    }
+
+    private JPanel kValJPanel() {
+        JPanel outerPanel = new JPanel(new GridLayout(0, 1));
+        JLabel subK = new JLabel("K-values");
+
+        Integer[] arrKUndirected = {4, 5, 6, 7, 8};
+        JComboBox<Integer> jcbKUndirected = new JComboBox<>(arrKUndirected);
+        jcbKUndirected.addActionListener(e -> this.kVal = (int) jcbKUndirected.getSelectedItem());
+        
+        Integer[] arrKDirected = {3, 4, 5, 6};
+        JComboBox<Integer> jcbKDirected = new JComboBox<>(arrKDirected);
+        jcbKDirected.addActionListener(e -> this.kVal = (int) jcbKDirected.getSelectedItem());
+
+        this.kValCards.add(jcbKUndirected, "Undirected");
+        this.kValCards.add(jcbKDirected, "Directed");
+
+        outerPanel.add(subK);
+        outerPanel.add(this.kValCards);
+        return outerPanel;
+    }
+
+    private JPanel chkSavJPanel() {
+        JPanel panel = new JPanel(new GridLayout(1, 0));
+        JCheckBox chkSave = new JCheckBox("Save the input and the result");
+        chkSave.addActionListener(e -> { this.isSaved = chkSave.isSelected(); });
+
+        panel.add(chkSave);
+        return panel;
     /**
      * Called by ImportGraph after a network loads to configure the slider
      * with the actual min/max score range from the data.
@@ -327,6 +401,7 @@ public class NavDashboard extends JFrame {
                     networkFactory, networkManager, networkViewFactory, networkViewManager,
                     layoutManager);
         }
+        instance.setVisible(true);
         return instance;
     }
 }

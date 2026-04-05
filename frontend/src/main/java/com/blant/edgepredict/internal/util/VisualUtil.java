@@ -1,13 +1,23 @@
 package com.blant.edgepredict.internal.util;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Paint;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingUtilities;
 
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.presentation.property.BasicVisualLexicon;
-
-import org.cytoscape.view.vizmap.*;
+import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
+import org.cytoscape.view.vizmap.VisualMappingManager;
+import org.cytoscape.view.vizmap.VisualStyle;
+import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.view.vizmap.mappings.DiscreteMapping;
 import org.cytoscape.view.vizmap.mappings.PassthroughMapping;
 
@@ -85,5 +95,27 @@ public class VisualUtil {
         vmm.setVisualStyle(style, view);
         style.apply(view);
         view.updateView();
+    }
+
+    public static void showTableDialogue(String raw_data) {
+        List<String[]> edgeList = new ArrayList<>();
+        for (String line : raw_data.split("\n")) {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            String[] row = line.split("\\s+");
+            edgeList.add(row);
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            String[] columnNames = {"Source", "Interaction", "Target", "Confident Score"};
+            String[][] data = edgeList.toArray(new String[0][]);
+            JTable table = new JTable(data, columnNames);
+            JScrollPane scrollPane = new JScrollPane(table);
+            scrollPane.setPreferredSize(new Dimension(500, 400));
+
+            JOptionPane.showMessageDialog(null, scrollPane, "Array Data Viewer", JOptionPane.PLAIN_MESSAGE);
+        });
     }
 }
