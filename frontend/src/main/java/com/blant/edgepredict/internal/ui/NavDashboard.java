@@ -2,10 +2,15 @@ package com.blant.edgepredict.internal.ui;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.GridLayout;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -14,11 +19,9 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
 import javax.swing.event.ChangeListener;
 
-import java.awt.*;
-
-import org.cytoscape.work.TaskManager;
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.model.CyNetwork;
@@ -31,7 +34,6 @@ import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.model.CyNetworkViewFactory;
 import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.presentation.property.BasicVisualLexicon;
-import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
@@ -191,12 +193,10 @@ public class NavDashboard extends JFrame {
         buttonPanel.add(exportBtn);
         buttonPanel.add(importBtn);
         buttonPanel.add(logBtn);
-        buttonPanel.add(arrayBtn);
         buttonPanel.add(sendBtn);
 
         // --- Layout ---
         add(sliderPanel, BorderLayout.NORTH);
-        add(paramPanel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.SOUTH);
 
         pack();
@@ -283,6 +283,7 @@ public class NavDashboard extends JFrame {
 
         panel.add(chkSave);
         return panel;
+    }
     /**
      * Called by ImportGraph after a network loads to configure the slider
      * with the actual min/max score range from the data.
