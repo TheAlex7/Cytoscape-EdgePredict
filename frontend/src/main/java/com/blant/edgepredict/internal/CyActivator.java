@@ -24,25 +24,40 @@ public class CyActivator extends AbstractCyActivator {
 
     @Override
     public void start(BundleContext bc) {
-        CyApplicationManager appManager = getService(bc, CyApplicationManager.class);
-        TaskManager taskManager = getService(bc, TaskManager.class);
+        CyApplicationManager appManager       = getService(bc, CyApplicationManager.class);
+        TaskManager taskManager               = getService(bc, TaskManager.class);
         CyNetworkViewWriterManager writerManager = getService(bc, CyNetworkViewWriterManager.class);
-        FileUtil fileUtil = getService(bc, FileUtil.class);
-        VisualMappingManager vmm = getService(bc, VisualMappingManager.class);
-        VisualStyleFactory vsFactory = getService(bc, VisualStyleFactory.class);
-        VisualMappingFunctionFactory vmfFactoryDiscrete = getService(bc, VisualMappingFunctionFactory.class, "(mapping.type=discrete)");
-        CyNetworkFactory networkFactory = getService(bc, CyNetworkFactory.class);
-        CyNetworkManager networkManager = getService(bc, CyNetworkManager.class);
+        FileUtil fileUtil                     = getService(bc, FileUtil.class);
+        VisualMappingManager vmm              = getService(bc, VisualMappingManager.class);
+        VisualStyleFactory vsFactory          = getService(bc, VisualStyleFactory.class);
+        CyNetworkFactory networkFactory       = getService(bc, CyNetworkFactory.class);
+        CyNetworkManager networkManager       = getService(bc, CyNetworkManager.class);
         CyNetworkViewFactory networkViewFactory = getService(bc, CyNetworkViewFactory.class);
         CyNetworkViewManager networkViewManager = getService(bc, CyNetworkViewManager.class);
-        CyLayoutAlgorithmManager layoutManager = getService(bc, CyLayoutAlgorithmManager.class);
+        CyLayoutAlgorithmManager layoutManager  = getService(bc, CyLayoutAlgorithmManager.class);
+
+        // Two VMF factories: one for discrete mappings, one for passthrough
+        VisualMappingFunctionFactory vmfDiscrete =
+                getService(bc, VisualMappingFunctionFactory.class, "(mapping.type=discrete)");
+        VisualMappingFunctionFactory vmfPassthrough =
+                getService(bc, VisualMappingFunctionFactory.class, "(mapping.type=passthrough)");
 
         if (appManager.getCurrentNetworkView() != null) {
-            VisualUtil.applyStyles(appManager.getCurrentNetworkView(), vmm, vmfFactoryDiscrete, vsFactory);
+            VisualUtil.applyStyles(
+                    appManager.getCurrentNetworkView(),
+                    vmm,
+                    vmfDiscrete,
+                    vmfPassthrough,
+                    vsFactory);
         }
 
-        MenuAction menuAction = new MenuAction(appManager, taskManager, writerManager, fileUtil, vmm, vmfFactoryDiscrete, vsFactory,
-                networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager);
+        MenuAction menuAction = new MenuAction(
+                appManager, taskManager, writerManager, fileUtil,
+                vmm, vmfDiscrete, vmfPassthrough, vsFactory,
+                networkFactory, networkManager,
+                networkViewFactory, networkViewManager,
+                layoutManager);
+
         registerService(bc, menuAction, CyAction.class, new Properties());
     }
 }
