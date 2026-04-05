@@ -11,7 +11,7 @@
   <groupId>com.blant.edgepredict</groupId>
   <artifactId>BLANT</artifactId>
   <packaging>bundle</packaging>
-  <version>1.30</version>
+  <version>1.31</version>
   <name>BLANT for Cytoscape</name>
 
   <build>
