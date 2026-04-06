@@ -1,0 +1,39 @@
+Note: Sampling method is EBE
+Note: CPC lookup tables: bufLen 428, buf = 0x720009e29000, lkpLen 5632, lkp = 0x567a44401000
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:08 batch 1 CPU 1.16953s samples 263722 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:09 batch 2 CPU 2.35014s samples 527444 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:11 batch 3 CPU 3.50709s samples 791166 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:12 batch 4 CPU 4.9102s samples 1054888 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:13 batch 5 CPU 6.35231s samples 1318610 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:15 batch 6 CPU 7.73212s samples 1582332 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:16 batch 7 CPU 9.23224s samples 1846054 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: RAW sysinfo data: totalram 16720781312 freeram 15806595072 mem_unit 1
+Note: System claims to have totalram 15.5724 GB with 14.721 free
+Note: 2026-03-04 17:02:18 batch 8 CPU 10.6069s samples 2109776 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:19 batch 9 CPU 11.9191s samples 2373498 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:20 batch 10 CPU 13.3622s samples 2637220 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:22 batch 11 CPU 14.7523s samples 2900942 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:23 batch 12 CPU 16.0824s samples 3164664 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:24 batch 13 CPU 17.3718s samples 3428386 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:26 batch 14 CPU 18.5361s samples 3692108 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:27 batch 15 CPU 19.6671s samples 3955830 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.01 (2 digits) with 99.9% confidence
+Note: 2026-03-04 17:02:28 batch 16 CPU 20.7351s samples 4219552 prec mean 0 worst 0 (g-1 count 0)
+Note: Took 20.698893 seconds to sample 4219552 with 1 threads with a sampling throughput of 2.039e+05 iterations/sec in 16 batches.
+Note: Finished sampling; CPU seconds = 20.7353; calling CPCwrapper...
+Note: Finished CPCwrapper; CPU seconds = 20.7353; remainder of time is output

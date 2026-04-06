@@ -15,8 +15,8 @@ WORKDIR /app
 
 # COPY everything not in the dockerignore
 
-# comment out below line if want to test
-COPY BLANT .
+# uncomment below line if want to use BLANT
+# COPY BLANT .
 
 COPY native_src ./native_src
 COPY requirements.txt .
@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 EXPOSE 5000
 
-# Fix Windows line endings --- can comment out below when ready to deploy
+# Fix Windows line endings --- can comment out below and add to .dockerignore when ready to deploy
 RUN dos2unix native_src/scripts/run_mock.sh 
 RUN chmod +x native_src/scripts/run_mock.sh
 
@@ -37,12 +37,13 @@ RUN dos2unix native_src/scripts/make_mock.sh
 RUN chmod +x native_src/scripts/make_mock.sh
 
 RUN ./native_src/scripts/make_mock.sh
-RUN chmod +x native_src/mock/_objs/mock_blant
+RUN chmod +x native_src/mock/_objs/mock_streams
+# RUN chmod +x native_src/mock/_objs/mock_blant
 # --- 
 
-# comment out if want to test
-RUN ./regression-test-all.sh -make
-RUN chmod +x ./blant
+# uncomment below line if want to use BLANT
+# RUN ./regression-test-all.sh -make
+# RUN chmod +x ./blant
 
 # production
 # CMD ["gunicorn", "server:app", "-b", "0.0.0.0:5000"]

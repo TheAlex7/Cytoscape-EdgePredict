@@ -4,19 +4,21 @@ import io
 import threading
 import queue
 import os
-import uuid
+# import uuid
 from native_src.logic import *
 import shutil
 
 app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
-# app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # TODO: confirm what size we should allow
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # TODO: confirm what size we should allow
 VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'} # TODO: double check which files are allowed, maybe get rid of extension validator?
-UPLOAD_FOLDER = "uploads"
-RESULTS_FOLDER = "job_results"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULTS_FOLDER, exist_ok=True)
+# UPLOAD_FOLDER = "uploads"
+# RESULTS_FOLDER = "job_results"
+# os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# os.makedirs(RESULTS_FOLDER, exist_ok=True)
+JOBS_FOLDER = "jobs"
+os.makedirs(JOBS_FOLDER, exist_ok=True)
 
 # Store running jobs globally
 global jobs 
@@ -27,7 +29,8 @@ process_data = {
     "stderr_queue": queue.Queue(),
     "process": process | None,
     "finished": Bool,
-    "file_path": String,
+    "stdout_path": String,
+    "stderr_path": String,
     "base_name": String
 }
 """
@@ -47,11 +50,14 @@ def fileTooLarge(error):
 
 @app.route("/clear-all")
 def flushAll():
-    shutil.rmtree(UPLOAD_FOLDER)
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    shutil.rmtree(JOBS_FOLDER)
+    os.makedirs(JOBS_FOLDER, exist_ok=True)
 
-    shutil.rmtree(RESULTS_FOLDER)
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    # shutil.rmtree(UPLOAD_FOLDER)
+    # os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+    # shutil.rmtree(RESULTS_FOLDER)
+    # os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
     jobs.clear()
     return jsonify({"message": "successfully cleared all job data"}), 200
@@ -61,8 +67,9 @@ def flushJob(job_id):
     if not job_id in jobs:
         return jsonify({"error": "Job not found."}), 400
 
-    os.remove(jobs[job_id]["upload_path"])
-    os.remove(jobs[job_id]["result_path"])
+    os.remove(os.path.join(JOBS_FOLDER, job_id))
+    # os.remove(jobs[job_id]["upload_path"])
+    # os.remove(jobs[job_id]["result_path"])
     del jobs[job_id]
     return jsonify({"message": "successfully cleared specified job data"}), 200
 
@@ -76,14 +83,16 @@ def getStderr(job_id):
         while not process_data["finished"] or not process_data["stderr_queue"].empty():
             try:
                 line = process_data["stderr_queue"].get(timeout=0.5)
-                yield f"data: {line}\n\n"
+                if line is None:  # terminates
+                    break
+                yield f"data: {line}\n"
             except:
                 continue
         yield "data: [PREDICTION COMPLETE]\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
 
-# for now it'll give float 0, or 1.0 to represent "done" / "not done"
+# TODO: add parsing + parameters to make it easy on frontend
 @app.route("/results/<job_id>")
 def getResult(job_id):
     if not job_id in jobs:
@@ -96,7 +105,7 @@ def getResult(job_id):
     base_name = process_data["base_name"]
 
     buffer = io.BytesIO()
-    with open(process_data["result_path"], "r", encoding="utf-8") as file:
+    with open(process_data["stdout_path"], "r", encoding="utf-8") as file:
         buffer.write(file.read().encode("utf-8"))
     buffer.seek(0)
 
@@ -107,6 +116,7 @@ def getResult(job_id):
         mimetype='text/plain'
     )
 
+# for now it'll give float 0, or 1.0 to represent "done" / "not done"
 # (future goal) TODO: progress should be an estimate depending on current epoch and precision
 @app.route("/progress/<job_id>")
 def checkProgress(job_id): 
@@ -119,10 +129,10 @@ def checkProgress(job_id):
 
     return jsonify({"progress": 1})
 
-def isValidFile(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
+# def isValidFile(filename):
+#     return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
 
-# TODO: add program parameters
+# TODO: add ALL program parameters
 @app.route("/blant", methods=["POST"])
 def startBlant():
     if 'file' not in request.files:
@@ -133,19 +143,33 @@ def startBlant():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    if not isValidFile(file.filename):
-        return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
+    ### getting rid of validation for now
+    # if not isValidFile(file.filename):
+    #     return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
-    k = request.args.get("k", default="4", type=str)        # default k=3
+    k = request.args.get("k", default="4", type=str)        # default k=4
     sampling_method = request.args.get("method", default="MCMC") #TODO: confirm default method and add valid method checker
+    isForced = request.args.get("force", default="0", type=str)
 
     if not k.isnumeric() or int(k) < 3 or int(k) > 8:
         return jsonify({"error": f"k must be integer in range [3,8]."}), 400
+    
+    if not isForced.isnumeric():
+        return jsonify({"error": f"force must be integer representation of a boolean."}), 400
+    
+    # extension includes "." (ex: .gml, .el, .txt), if no extension then empty str
+    user_ext = "." + file.filename.rsplit('.', 1)[1].lower() if "." in file.filename else ""
 
-    file = request.files["file"]
-    job_id = str(uuid.uuid4())[:5] # shortened for development
-    upload_path = os.path.join(UPLOAD_FOLDER, job_id + "." + file.filename.rsplit('.', 1)[1].lower()) #<job_id>.<user_file_ext>
-    result_path = os.path.join(RESULTS_FOLDER, job_id)
+    job_id = get_checksum(file) # should be the checksum of the upload file
+    os.makedirs(os.path.join(JOBS_FOLDER, job_id), exist_ok=True)
+
+    path = f"{JOBS_FOLDER}/{job_id}"
+    if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
+        return jsonify({"error" : "Job has been computed already."}), 409
+
+    upload_path = os.path.join(JOBS_FOLDER, job_id, "upload" + user_ext) #<job_id>/upload.<user_file_ext>
+    stdout_path = os.path.join(JOBS_FOLDER, job_id, "stdout.txt")
+    stderr_path = os.path.join(JOBS_FOLDER, job_id, "stderr.txt")
     file.save(upload_path)
 
     cleaned_base_name = file.filename.rsplit('.', 1)[0].lower().replace(".", "_") # just in case given weird file names
@@ -154,13 +178,14 @@ def startBlant():
         "finished": False, 
         "stderr_queue": queue.Queue(),
         "upload_path": upload_path,
-        "result_path": result_path,
+        "stdout_path": stdout_path,
+        "stderr_path": stderr_path,
         "base_name": cleaned_base_name
     }
 
     thread = threading.Thread(
         target=run_blant,
-        args=(jobs, job_id, upload_path, result_path, k, sampling_method)
+        args=(jobs, job_id, upload_path, stdout_path, stderr_path, k, sampling_method)
     )
     thread.start() # separate thread to continue handling other calls
 
