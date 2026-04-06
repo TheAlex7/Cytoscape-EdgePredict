@@ -30,7 +30,7 @@ Important note: for allowing docker desktop into wsl terminal go to ```settings 
 - **yields** ```text/event-stream``` 
 
 ```<url_path>/results/<job_id>```
-- **Description**: Gives raw stdout of the BLANT program.
+- **Description**: Gives list of predicted edges from BLANT-Predict. (Currently gives raw stdout, parsing in progress)
 - **response content** ```<upload_filename>_blant_res.txt``` (text/plain)
 
 ```<url_path>/clear/<job_id>```
