@@ -2,7 +2,7 @@ CC = gcc
 OBJ_DIR = native_src/mock/_objs
 MOCK_SRC_DIR = native_src/mock
 
-all: $(OBJ_DIR) $(OBJ_DIR)/mock_blant
+all: $(OBJ_DIR) $(OBJ_DIR)/mock_blant $(OBJ_DIR)/mock_streams
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)

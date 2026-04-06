@@ -10,24 +10,20 @@ import shutil
 app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # TODO: confirm what size we should allow
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # NOTE: 1mb chosen since thats how hayes lab website is
 VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'} # TODO: double check which files are allowed, maybe get rid of extension validator?
-# UPLOAD_FOLDER = "uploads"
-# RESULTS_FOLDER = "job_results"
-# os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-# os.makedirs(RESULTS_FOLDER, exist_ok=True)
 JOBS_FOLDER = "jobs"
 os.makedirs(JOBS_FOLDER, exist_ok=True)
 
-# Store running jobs globally
+# Store running jobs globally TODO: switch to completely file based jobs
 global jobs 
 jobs = dict()
 """
 # Jobs should be in this format:
 process_data = {
-    "stderr_queue": queue.Queue(),
-    "process": process | None,
     "finished": Bool,
+    "stderr_queue": queue.Queue(),
+    "upload_path": String,
     "stdout_path": String,
     "stderr_path": String,
     "base_name": String
@@ -52,12 +48,6 @@ def flushAll():
     shutil.rmtree(JOBS_FOLDER)
     os.makedirs(JOBS_FOLDER, exist_ok=True)
 
-    # shutil.rmtree(UPLOAD_FOLDER)
-    # os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-    # shutil.rmtree(RESULTS_FOLDER)
-    # os.makedirs(RESULTS_FOLDER, exist_ok=True)
-
     jobs.clear()
     return jsonify({"message": "successfully cleared all job data"}), 200
 
@@ -67,12 +57,10 @@ def flushJob(job_id):
         return jsonify({"error": "Job not found."}), 400
 
     os.remove(os.path.join(JOBS_FOLDER, job_id))
-    # os.remove(jobs[job_id]["upload_path"])
-    # os.remove(jobs[job_id]["result_path"])
     del jobs[job_id]
     return jsonify({"message": "successfully cleared specified job data"}), 200
 
-@app.route("/blant_stderr/<job_id>")
+@app.route("/stderr_stream/<job_id>")
 def getStderr(job_id):
     if not job_id in jobs:
         return jsonify({"error": "Job not found."}), 400
@@ -84,7 +72,7 @@ def getStderr(job_id):
                 line = process_data["stderr_queue"].get(timeout=0.5)
                 if line is None:  # terminates
                     break
-                yield f"data: {line}\n"
+                yield f"data: new{line}\n\n"
             except:
                 continue
         yield "data: [PREDICTION COMPLETE]\n\n"
@@ -162,9 +150,10 @@ def startBlant():
     job_id = get_checksum(file) # should be the checksum of the upload file
     os.makedirs(os.path.join(JOBS_FOLDER, job_id), exist_ok=True)
 
-    path = f"{JOBS_FOLDER}/{job_id}"
-    if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
-        return jsonify({"error" : "Job has been computed already."}), 409
+    ### Checking if job has already been computed can be done on frontend instead
+    # path = f"{JOBS_FOLDER}/{job_id}"
+    # if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
+    #     return jsonify({"error" : "Job has been computed already."}), 409
 
     upload_path = os.path.join(JOBS_FOLDER, job_id, "upload" + user_ext) #<job_id>/upload.<user_file_ext>
     stdout_path = os.path.join(JOBS_FOLDER, job_id, "stdout.txt")
