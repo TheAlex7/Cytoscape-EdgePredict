@@ -17,4 +17,4 @@ Important note: for allowing docker desktop into wsl terminal go to ```settings 
 
 ## Recent changes:
 - src renamed to native_src to not interfere with BLANT/src
-- Comment out blant-related lines in dockerfile
+- Comment out blant-related lines in dockerfile to use real-time BLANT (Make sure to have working BLANT dir inside backend/)
