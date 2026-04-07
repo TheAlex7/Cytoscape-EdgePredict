@@ -37,41 +37,52 @@ public class BlantPoller {
                         conn.setReadTimeout(2000);
 
                         if (conn.getResponseCode() == 200) {
+                            BufferedReader reader = new BufferedReader(
+                                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
 
-                        BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                            StringBuilder sb = new StringBuilder();
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                sb.append(line);
+                            }
+                            reader.close();
 
-                        StringBuilder sb = new StringBuilder();
-                        String line;
+                            String response = sb.toString();
+                            // Expected response format: {"progress": 0} or {"progress": 100}
+                            // We will extract the "progress" value and publish it to the log window. Testing purposes
+                            // publish("[PING] " + response);
 
-                        while ((line = reader.readLine()) != null) {
-                            sb.append(line);
+
+                            int progress  = extractInt(response, "progress");
+                            
+
+                            if (progress == 1) {
+                                publish("[DONE] Job completed successfully. Final progress: " + progress + "%");
+                                cancel(true);
+                            } else if (progress != 0) {
+                                publish("[WARN] Unexpected state from server (progress=" + progress + "): " + response);
+                                cancel(true);
+                            } else {
+                                publish("[PROGRESS] " + progress + "%");
+                            }
+
+                        } else {
+                            publish("[ERROR] Server returned HTTP " + conn.getResponseCode());
                         }
 
-                        String response = sb.toString();
-
-                        publish("[PING] " + response);
-
-                        // ISSUE: This parsing is very brittle and assumes a specific format. 
-                        // A more robust solution would be to use a JSON parsing library like Jackson or Gson,
-                        // but that would add an additional dependency to the project. 
-                        // For now, we will keep it simple and just document the expected format in the server
-                        // response. The expected format is: {"progress": <int>, "status": <string>}
-                        String progressStr = response.split("\"progress\"\\s*:\\s*")[1]
-                                                    .split("[,}]")[0]
-                                                    .trim();
-
-                        int progress = Integer.parseInt(progressStr);
-
-                        // Stop polling if progress is 0
-                        if (progress == 0) {
-                            cancel(true);
-                        }
-                    }
+                    
                     } catch (Exception e) {
                         publish("[ERROR] Could not reach server: " + e.getMessage());
                     }
-                    Thread.sleep(5000); // Poll every 5 seconds
+
+                    if (isCancelled()) break;
+
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
                 return null;
             }
@@ -90,5 +101,17 @@ public class BlantPoller {
         if (poller != null && !poller.isDone()) {
             poller.cancel(true);
         }
+    }
+
+    // ---------------------------------------------------------------- utils --
+
+    /**
+     * Extracts an integer value from a flat JSON string.
+     * Handles: {"key": 42} and {"key":42} and {"key": 42, ...}
+     */
+    private int extractInt(String json, String key) {
+        String[] parts = json.split("\"" + key + "\"\\s*:\\s*");
+        if (parts.length < 2) throw new NumberFormatException("Key not found: " + key);
+        return Integer.parseInt(parts[1].split("[,}]")[0].trim());
     }
 }

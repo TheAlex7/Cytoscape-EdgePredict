@@ -20,6 +20,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.JTextField;
 import javax.swing.event.ChangeListener;
 
 import org.cytoscape.application.CyApplicationManager;
@@ -47,7 +48,6 @@ public class NavDashboard extends JFrame {
 
     private static NavDashboard instance;
 
-    // What are these variables for? Maybe we don't need these anymore
     private final TaskManager taskManager;
     private final CyApplicationManager applicationManager;
     private final CyNetworkViewWriterManager writerManager;
@@ -61,8 +61,7 @@ public class NavDashboard extends JFrame {
     private final CyNetworkViewFactory networkViewFactory;
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
-    
-    // Input variables
+
     private String sampleMethod;
     private int precisionDigits;
     private int kVal;
@@ -70,14 +69,15 @@ public class NavDashboard extends JFrame {
     private String graphType = "Undirected";
     private CardLayout cardLayout = new CardLayout();
     private JPanel kValCards = new JPanel(cardLayout);
-  
-    // Slider state
+
     private JSlider confidenceSlider;
+    private JTextField thresholdField;       // <-- new
     private JLabel sliderLabel;
     private JLabel sliderRangeLabel;
     private double scoreMin = 0.0;
     private double scoreMax = 1.0;
     private ChangeListener sliderChangeListener;
+    private boolean syncingControls = false; // <-- prevents feedback loops
 
     private NavDashboard(TaskManager taskManager,
                          CyApplicationManager applicationManager,
@@ -92,7 +92,7 @@ public class NavDashboard extends JFrame {
                          CyNetworkViewFactory networkViewFactory,
                          CyNetworkViewManager networkViewManager,
                          CyLayoutAlgorithmManager layoutManager) {
-        super("BLANT Navigation Controller");
+        super("Edge Prediction Navigation Controller");
         this.taskManager = taskManager;
         this.applicationManager = applicationManager;
         this.writerManager = writerManager;
@@ -112,12 +112,12 @@ public class NavDashboard extends JFrame {
 
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        
+
         mainPanel.add(SampleMethodJPanel());
         mainPanel.add(PrecisionDigitspJPanel());
         mainPanel.add(GraphTypeJPanel());
         mainPanel.add(kValJPanel());
-        mainPanel.add(chkSavJPanel());        
+        mainPanel.add(chkSavJPanel());
         add(mainPanel, BorderLayout.CENTER);
 
         // --- Confidence Slider Panel ---
@@ -133,13 +133,44 @@ public class NavDashboard extends JFrame {
         confidenceSlider.setPaintLabels(false);
         confidenceSlider.setEnabled(false);
 
-        sliderChangeListener = e -> applyThreshold();
+        sliderChangeListener = e -> {
+            if (syncingControls) return;
+            syncingControls = true;
+            double fraction = confidenceSlider.getValue() / 1000.0;
+            double threshold = scoreMin + fraction * (scoreMax - scoreMin);
+            thresholdField.setText(String.format("%.4f", threshold));
+            thresholdField.setForeground(Color.BLACK);
+            syncingControls = false;
+            applyThreshold(threshold);
+        };
         confidenceSlider.addChangeListener(sliderChangeListener);
+
+        // --- Threshold text field ---
+        thresholdField = new JTextField("—", 8);
+        thresholdField.setEnabled(false);
+        thresholdField.setMaximumSize(new Dimension(90, 24));
+
+        // Pressing Enter in the field validates and applies the typed value
+        thresholdField.addActionListener(e -> applyTypedThreshold());
+
+        // Also apply when focus leaves the field
+        thresholdField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                applyTypedThreshold();
+            }
+        });
+
+        // Row with the label + text field side by side
+        JPanel thresholdRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        thresholdRow.add(sliderLabel);
+        thresholdRow.add(Box.createHorizontalStrut(8));
+        thresholdRow.add(thresholdField);
 
         JPanel sliderPanel = new JPanel();
         sliderPanel.setLayout(new BoxLayout(sliderPanel, BoxLayout.Y_AXIS));
         sliderPanel.setBorder(BorderFactory.createTitledBorder("Edge Confidence Filter"));
-        sliderPanel.add(sliderLabel);
+        sliderPanel.add(thresholdRow);
         sliderPanel.add(Box.createVerticalStrut(4));
         sliderPanel.add(sliderRangeLabel);
         sliderPanel.add(Box.createVerticalStrut(6));
@@ -174,18 +205,18 @@ public class NavDashboard extends JFrame {
         });
         importBtn.setPreferredSize(new Dimension(175, 25));
 
-        JButton sendBtn = new JButton("Send to BLANT");
+        JButton sendBtn = new JButton("Send to Edge Prediction");
         sendBtn.addActionListener(e -> {
             try {
-                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, 
-                    this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).send();
+                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager,
+                        this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).send();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
+                JOptionPane.showMessageDialog(null, "Send to Edge Prediction failed: " + ex.getMessage());
             }
         });
         sendBtn.setPreferredSize(new Dimension(145, 25));
 
-        JButton logBtn = new JButton("BLANT Log");
+        JButton logBtn = new JButton("Edge Prediction Log");
         logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
         logBtn.setPreferredSize(new Dimension(145, 25));
 
@@ -195,7 +226,6 @@ public class NavDashboard extends JFrame {
         buttonPanel.add(logBtn);
         buttonPanel.add(sendBtn);
 
-        // --- Layout ---
         add(sliderPanel, BorderLayout.NORTH);
         add(buttonPanel, BorderLayout.SOUTH);
 
@@ -205,95 +235,47 @@ public class NavDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 
-    private JPanel SampleMethodJPanel(){
-        JPanel panel = new JPanel(new GridLayout(2, 1));
-
-        JLabel subSample = new JLabel("Sample Method");
-
-        String[] arrSample = {"MCMC (Markov Chain Monte Carlo)",
-        "NBE (Node Based Expansion)",
-        "EBE (Edge Based Expansion)",
-        "RES (Reservior sampling)",
-        "AR (accept/reject)"};
-        JComboBox<String> jcbSample = new JComboBox<>(arrSample);
-        jcbSample.addActionListener(e -> { this.sampleMethod = (String) jcbSample.getSelectedItem(); });
-
-        panel.add(subSample);
-        panel.add(jcbSample);
-        return panel;
-    }
-
-    private JPanel PrecisionDigitspJPanel() {
-        JPanel panel = new JPanel(new GridLayout(3, 1));
-
-        JLabel subPrec = new JLabel("Precision Digits");
-
-        Integer[] arrPrec = {1, 2, 3, 4, 5};
-        JComboBox<Integer> jcbPrec = new JComboBox<>(arrPrec);
-        jcbPrec.addActionListener(e -> { this.precisionDigits = (int) jcbPrec.getSelectedItem(); });
-
-        JLabel subPrecWarn = new JLabel("*Warning! Increasing precision digit will cause runtime increase in quadratic manner!");
-
-        panel.add(subPrec);
-        panel.add(jcbPrec);
-        panel.add(subPrecWarn);
-        return panel;
-    }
-
-    private JPanel GraphTypeJPanel() {
-        JPanel panel = new JPanel(new GridLayout(2, 1));
-
-        JLabel subType = new JLabel("Graph Type");
-        String[] arrType = {"Undirected", "Directed"};
-        JComboBox<String> jcbType = new JComboBox<>(arrType);
-        jcbType.addActionListener(e -> { 
-            this.graphType = (String) jcbType.getSelectedItem(); 
-            cardLayout.show(this.kValCards, this.graphType);
-        });
-
-        panel.add(subType);
-        panel.add(jcbType);
-        return panel;
-    }
-
-    private JPanel kValJPanel() {
-        JPanel outerPanel = new JPanel(new GridLayout(0, 1));
-        JLabel subK = new JLabel("K-values");
-
-        Integer[] arrKUndirected = {4, 5, 6, 7, 8};
-        JComboBox<Integer> jcbKUndirected = new JComboBox<>(arrKUndirected);
-        jcbKUndirected.addActionListener(e -> this.kVal = (int) jcbKUndirected.getSelectedItem());
-        
-        Integer[] arrKDirected = {3, 4, 5, 6};
-        JComboBox<Integer> jcbKDirected = new JComboBox<>(arrKDirected);
-        jcbKDirected.addActionListener(e -> this.kVal = (int) jcbKDirected.getSelectedItem());
-
-        this.kValCards.add(jcbKUndirected, "Undirected");
-        this.kValCards.add(jcbKDirected, "Directed");
-
-        outerPanel.add(subK);
-        outerPanel.add(this.kValCards);
-        return outerPanel;
-    }
-
-    private JPanel chkSavJPanel() {
-        JPanel panel = new JPanel(new GridLayout(1, 0));
-        JCheckBox chkSave = new JCheckBox("Save the input and the result");
-        chkSave.addActionListener(e -> { this.isSaved = chkSave.isSelected(); });
-
-        panel.add(chkSave);
-        return panel;
-    }
     /**
-     * Called by ImportGraph after a network loads to configure the slider
-     * with the actual min/max score range from the data.
+     * Parses the typed value, shows an out-of-bounds message if needed,
+     * clamps to range, and applies. Called on Enter or focus-lost.
      */
+    private void applyTypedThreshold() {
+        if (syncingControls) return;
+        String text = thresholdField.getText().trim();
+
+        double value;
+        try {
+            value = Double.parseDouble(text);
+        } catch (NumberFormatException ex) {
+            thresholdField.setForeground(Color.RED);
+            JOptionPane.showMessageDialog(this,
+                    "\"" + text + "\" is not a valid number.",
+                    "Invalid input", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (value < scoreMin || value > scoreMax) {
+            thresholdField.setForeground(Color.RED);
+            JOptionPane.showMessageDialog(this,
+                    String.format("%.4f is outside the valid range (%.4f – %.4f).\nPlease enter a value within the range.", value, scoreMin, scoreMax),
+                    "Out of bounds", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Valid — sync slider and apply
+        thresholdField.setForeground(Color.BLACK);
+        syncingControls = true;
+        int sliderPos = (int) Math.round((value - scoreMin) / (scoreMax - scoreMin) * 1000);
+        confidenceSlider.setValue(sliderPos);
+        syncingControls = false;
+
+        applyThreshold(value);
+    }
+
     public void setScoreRange(double min, double max) {
         this.scoreMin = min;
         this.scoreMax = max;
 
-        // Remove listener while resetting slider programmatically to avoid
-        // triggering applyThreshold() mid-update
         confidenceSlider.removeChangeListener(sliderChangeListener);
         confidenceSlider.setMinimum(0);
         confidenceSlider.setMaximum(1000);
@@ -301,19 +283,20 @@ public class NavDashboard extends JFrame {
         confidenceSlider.setEnabled(true);
         confidenceSlider.addChangeListener(sliderChangeListener);
 
-        sliderLabel.setText(String.format("Confidence Threshold: %.4f", min));
+        thresholdField.setEnabled(true);
+        thresholdField.setText(String.format("%.4f", min));
+        thresholdField.setForeground(Color.BLACK);
+
+        sliderLabel.setText("Confidence Threshold:");
         sliderRangeLabel.setText(String.format(
-                "Range: %.4f – %.4f   |   Drag to hide low-confidence edges", min, max));
+                "Range: %.4f – %.4f   |   Drag or type to filter edges", min, max));
     }
 
     /**
-     * Applies the current slider threshold: hides edges below it and
-     * repaints visible edges with the blue->red gradient.
+     * Applies the given threshold value to the network view.
      */
-    private void applyThreshold() {
-        double fraction = confidenceSlider.getValue() / 1000.0;
-        double threshold = scoreMin + fraction * (scoreMax - scoreMin);
-        sliderLabel.setText(String.format("Confidence Threshold: %.4f", threshold));
+    private void applyThreshold(double threshold) {
+        sliderLabel.setText("Confidence Threshold:");
 
         CyNetworkView view = applicationManager.getCurrentNetworkView();
         if (view == null) return;
@@ -338,9 +321,6 @@ public class NavDashboard extends JFrame {
         view.updateView();
     }
 
-    /**
-     * Builds a small blue->red gradient legend strip with low/high labels.
-     */
     private JPanel buildColorLegend() {
         JPanel wrapper = new JPanel(new BorderLayout(4, 0));
 
@@ -375,10 +355,69 @@ public class NavDashboard extends JFrame {
         return wrapper;
     }
 
-    /**
-     * Returns the existing singleton without requiring all constructor args.
-     * Returns null if the dashboard was never opened.
-     */
+    private JPanel SampleMethodJPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 1));
+        JLabel subSample = new JLabel("Sample Method");
+        String[] arrSample = {"MCMC (Markov Chain Monte Carlo)", "NBE (Node Based Expansion)",
+                "EBE (Edge Based Expansion)", "RES (Reservior sampling)", "AR (accept/reject)"};
+        JComboBox<String> jcbSample = new JComboBox<>(arrSample);
+        jcbSample.addActionListener(e -> this.sampleMethod = (String) jcbSample.getSelectedItem());
+        panel.add(subSample);
+        panel.add(jcbSample);
+        return panel;
+    }
+
+    private JPanel PrecisionDigitspJPanel() {
+        JPanel panel = new JPanel(new GridLayout(3, 1));
+        JLabel subPrec = new JLabel("Precision Digits");
+        Integer[] arrPrec = {1, 2, 3, 4, 5};
+        JComboBox<Integer> jcbPrec = new JComboBox<>(arrPrec);
+        jcbPrec.addActionListener(e -> this.precisionDigits = (int) jcbPrec.getSelectedItem());
+        JLabel subPrecWarn = new JLabel("*Warning! Increasing precision digit will cause runtime increase in quadratic manner!");
+        panel.add(subPrec);
+        panel.add(jcbPrec);
+        panel.add(subPrecWarn);
+        return panel;
+    }
+
+    private JPanel GraphTypeJPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 1));
+        JLabel subType = new JLabel("Graph Type");
+        String[] arrType = {"Undirected", "Directed"};
+        JComboBox<String> jcbType = new JComboBox<>(arrType);
+        jcbType.addActionListener(e -> {
+            this.graphType = (String) jcbType.getSelectedItem();
+            cardLayout.show(this.kValCards, this.graphType);
+        });
+        panel.add(subType);
+        panel.add(jcbType);
+        return panel;
+    }
+
+    private JPanel kValJPanel() {
+        JPanel outerPanel = new JPanel(new GridLayout(0, 1));
+        JLabel subK = new JLabel("K-values");
+        Integer[] arrKUndirected = {4, 5, 6, 7, 8};
+        JComboBox<Integer> jcbKUndirected = new JComboBox<>(arrKUndirected);
+        jcbKUndirected.addActionListener(e -> this.kVal = (int) jcbKUndirected.getSelectedItem());
+        Integer[] arrKDirected = {3, 4, 5, 6};
+        JComboBox<Integer> jcbKDirected = new JComboBox<>(arrKDirected);
+        jcbKDirected.addActionListener(e -> this.kVal = (int) jcbKDirected.getSelectedItem());
+        this.kValCards.add(jcbKUndirected, "Undirected");
+        this.kValCards.add(jcbKDirected, "Directed");
+        outerPanel.add(subK);
+        outerPanel.add(this.kValCards);
+        return outerPanel;
+    }
+
+    private JPanel chkSavJPanel() {
+        JPanel panel = new JPanel(new GridLayout(1, 0));
+        JCheckBox chkSave = new JCheckBox("Save the input and the result");
+        chkSave.addActionListener(e -> this.isSaved = chkSave.isSelected());
+        panel.add(chkSave);
+        return panel;
+    }
+
     public static NavDashboard getExistingInstance() {
         return instance;
     }

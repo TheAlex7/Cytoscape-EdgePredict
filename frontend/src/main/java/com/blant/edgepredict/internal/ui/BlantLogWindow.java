@@ -16,7 +16,7 @@ public class BlantLogWindow extends JFrame {
     private final JButton closeBtn;
 
     private BlantLogWindow() {
-        super("BLANT Log");
+        super("Edge Prediction Log");
 
         logArea = new JTextArea();
         logArea.setEditable(false);

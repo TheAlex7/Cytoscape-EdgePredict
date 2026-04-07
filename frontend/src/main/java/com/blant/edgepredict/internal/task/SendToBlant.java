@@ -58,15 +58,14 @@ public class SendToBlant {
 
     public void send() throws Exception {
 
-        FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif)", new String[]{"txt", "csv", "sif"});
+        FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
 
         File file = fileUtil.getFile(
                 JOptionPane.getRootFrame(),
-                "Select Network File for BLANT",
+                "Select Network File for Edge Prediction",
                 FileUtil.LOAD,
                 Collections.singletonList(filter)
         );
-        // Todo: Save Input in somewhere + Job Id
         if (file == null) return;
 
         // Open log window as soon as file is selected
@@ -74,7 +73,7 @@ public class SendToBlant {
         BlantPoller poller = BlantPoller.getInstance();
         logWindow.setVisible(true);
         logWindow.appendLog("[INFO] File selected: " + file.getName());
-        logWindow.appendLog("[INFO] Sending to BLANT...");
+        logWindow.appendLog("[INFO] Sending to Edge Prediction...");
         
 
         try {
@@ -108,7 +107,7 @@ public class SendToBlant {
             // If submission is successful, we expect the response to contain a job ID which we will use to poll for results
             if (status == 200) {
                 poller.stopPolling();
-                logWindow.appendLog("[INFO] BLANT processing complete. Loading result...");
+                logWindow.appendLog("[INFO] Edge Prediction processing complete. Loading result...");
                 byte[] responseBytes = conn.getInputStream().readAllBytes();
                 String responseText = new String(responseBytes, StandardCharsets.UTF_8);
                 // ISSUE: Solution for now
