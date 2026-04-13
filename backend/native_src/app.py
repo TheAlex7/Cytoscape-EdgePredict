@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # NOTE: 1mb chosen since thats how hayes lab website is
-VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'} # TODO: double check which files are allowed, maybe get rid of extension validator?
+VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'}
 JOBS_FOLDER = "jobs"
 os.makedirs(JOBS_FOLDER, exist_ok=True)
 
@@ -72,7 +72,7 @@ def getStderr(job_id):
                 line = process_data["stderr_queue"].get(timeout=0.5)
                 if line is None:  # terminates
                     break
-                yield f"data: new{line}\n\n"
+                yield f"data: {line}\n\n"
             except:
                 continue
         yield "data: [PREDICTION COMPLETE]\n\n"
