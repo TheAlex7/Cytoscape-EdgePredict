@@ -1,4 +1,13 @@
 # Cytoscape-EdgePredict
+## Quick Setup
+Prerequisites: Must have Cytoscape and Docker installed
+
+```
+git clone https://github.com/TheAlex7/Cytoscape-EdgePredict.git CSEP
+cd CSEP
+```
+NOTE: Before official deployment to DockerHub or other: include a stable version of BLANT-Predict to ./BLANT 
+
 ## Running Frontend
 
 ## Running Backend
