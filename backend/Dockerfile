@@ -6,14 +6,16 @@ RUN apt-get update && apt-get install -y \
     dos2unix \
     time \
     gawk \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # COPY everything not in the dockerignore
 
+ENV PATH="$PATH:/app/libwayne/bin"
 # uncomment below line if want to use BLANT
-COPY BLANT .
+# COPY BLANT .
 
 COPY native_src ./native_src
 COPY requirements.txt .
@@ -39,10 +41,9 @@ RUN chmod +x native_src/mock/_objs/mock_streams
 # --- 
 
 # uncomment below line if want to use BLANT
-RUN ./regression-test-all.sh -make
-RUN chmod +x ./blant
+# RUN ./regression-test-all.sh -make
+# RUN chmod +x ./blant
 
-ENV PATH="$PATH:/app/libwayne/bin"
 
 # production
 # CMD ["gunicorn", "server:app", "-b", "0.0.0.0:5000"]

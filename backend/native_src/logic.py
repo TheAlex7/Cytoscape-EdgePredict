@@ -9,9 +9,9 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
     process_data["finished"] = False
 
     process = subprocess.Popen(
-        # ["bash", "./native_src/scripts/run_mock.sh", "./native_src/mock/syeast_stderr.txt", "./native_src/mock/mock_output.txt"], # comment this when running BLANT
-        # ["bash", "./native_src/scripts/run_blant.sh", "-k", k, "-s", sampling_method, "-mp", input_path], # uncomment this when running BLANT
-        ["bash", "./src/EdgePredict/scripts/predict-edges-from-network.sh", "-s", sampling_method, input_path, k ], # uncomment this when running BLANT
+        ["bash", "./native_src/scripts/run_mock.sh", "./native_src/mock/syeast_stderr.txt", "./native_src/mock/mock_output.txt"], # comment this when running BLANT
+        # ["bash", "./native_src/scripts/run_blant.sh", "-k", k, "-s", sampling_method, "-mp", input_path], # deprecated
+        # ["bash", "./src/EdgePredict/scripts/predict-edges-from-network.sh", "-s", sampling_method, input_path, k ], # uncomment this when running BLANT
         cwd = "/app",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

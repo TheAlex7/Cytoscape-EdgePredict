@@ -116,8 +116,8 @@ def checkProgress(job_id):
 
     return jsonify({"progress": 1})
 
-# def isValidFile(filename):
-#     return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
+def isValidFile(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
 
 # TODO: add ALL program parameters
 @app.route("/blant", methods=["POST"])
@@ -130,9 +130,9 @@ def startBlant():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    ### getting rid of validation for now
-    # if not isValidFile(file.filename):
-    #     return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
+    # file validation
+    if not isValidFile(file.filename):
+        return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
     k = request.args.get("k", default="4", type=str)        # default k=4
     sampling_method = request.args.get("method", default="MCMC") #TODO: confirm default method and add valid method checker
@@ -151,9 +151,10 @@ def startBlant():
     os.makedirs(os.path.join(JOBS_FOLDER, job_id), exist_ok=True)
 
     ### Checking if job has already been computed can be done on frontend instead
-    # path = f"{JOBS_FOLDER}/{job_id}"
-    # if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
-    #     return jsonify({"error" : "Job has been computed already."}), 409
+    path = f"{JOBS_FOLDER}/{job_id}"
+    if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
+        return jsonify({"error" : f"Job has already been computed inside job {job_id} [truncated].",
+                        "jobID" : job_id}), 409
 
     upload_path = os.path.join(JOBS_FOLDER, job_id, "upload" + user_ext) #<job_id>/upload.<user_file_ext>
     stdout_path = os.path.join(JOBS_FOLDER, job_id, "stdout.txt")
