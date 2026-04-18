@@ -152,9 +152,9 @@ def startBlant():
 
     ### Checking if job has already been computed can be done on frontend instead
     path = f"{JOBS_FOLDER}/{job_id}"
-    if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
-        return jsonify({"error" : f"Job has already been computed inside job {job_id} [truncated].",
-                        "jobID" : job_id}), 409
+    # if isForced == "0" and (job_id in jobs or os.path.isdir(path)): # not a forced job and it already exists
+    #     return jsonify({"error" : f"Job has already been computed inside job {job_id} [truncated].",
+    #                     "jobID" : job_id}), 409
 
     upload_path = os.path.join(JOBS_FOLDER, job_id, "upload" + user_ext) #<job_id>/upload.<user_file_ext>
     stdout_path = os.path.join(JOBS_FOLDER, job_id, "stdout.txt")

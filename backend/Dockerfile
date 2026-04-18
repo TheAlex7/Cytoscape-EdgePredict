@@ -15,7 +15,7 @@ WORKDIR /app
 
 ENV PATH="$PATH:/app/libwayne/bin"
 # uncomment below line if want to use BLANT
-# COPY BLANT .
+COPY BLANT .
 
 COPY native_src ./native_src
 COPY requirements.txt .
@@ -41,8 +41,8 @@ RUN chmod +x native_src/mock/_objs/mock_streams
 # --- 
 
 # uncomment below line if want to use BLANT
-# RUN ./regression-test-all.sh -make
-# RUN chmod +x ./blant
+RUN ./regression-test-all.sh -make
+RUN chmod +x ./blant
 
 
 # production
