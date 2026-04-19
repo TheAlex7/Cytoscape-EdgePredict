@@ -39,15 +39,13 @@ import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
 
-import com.blant.edgepredict.internal.task.ExportGraph;
-import com.blant.edgepredict.internal.task.ImportGraph;
-import com.blant.edgepredict.internal.task.SendToBlant;
+import com.blant.edgepredict.internal.task.PredictTaskManager;
+import com.blant.edgepredict.internal.util.VisualUtil;
 
 public class NavDashboard extends JFrame {
 
     private static NavDashboard instance;
 
-    // What are these variables for? Maybe we don't need these anymore
     private final TaskManager taskManager;
     private final CyApplicationManager applicationManager;
     private final CyNetworkViewWriterManager writerManager;
@@ -66,8 +64,9 @@ public class NavDashboard extends JFrame {
     private String sampleMethod;
     private int precisionDigits;
     private int kVal;
-    private boolean isSaved;
     private String graphType = "Undirected";
+    private boolean isSaved = true;
+    private boolean isMultiThreaded;
     private CardLayout cardLayout = new CardLayout();
     private JPanel kValCards = new JPanel(cardLayout);
   
@@ -95,8 +94,8 @@ public class NavDashboard extends JFrame {
         super("BLANT Navigation Controller");
         this.taskManager = taskManager;
         this.applicationManager = applicationManager;
-        this.writerManager = writerManager;
         this.fileUtil = fileUtil;
+        this.writerManager = writerManager;
         this.vmm = vmm;
         this.vmfDiscrete = vmfDiscrete;
         this.vmfPassthrough = vmfPassthrough;
@@ -120,83 +119,30 @@ public class NavDashboard extends JFrame {
         mainPanel.add(chkSavJPanel());        
         add(mainPanel, BorderLayout.CENTER);
 
-        // --- Confidence Slider Panel ---
-        sliderLabel = new JLabel("Confidence Threshold: —");
-        sliderRangeLabel = new JLabel("Import a network to enable filtering");
-        sliderRangeLabel.setFont(sliderRangeLabel.getFont().deriveFont(Font.ITALIC, 11f));
-        sliderRangeLabel.setForeground(Color.GRAY);
-
-        confidenceSlider = new JSlider(0, 1000, 0);
-        confidenceSlider.setMajorTickSpacing(250);
-        confidenceSlider.setMinorTickSpacing(50);
-        confidenceSlider.setPaintTicks(true);
-        confidenceSlider.setPaintLabels(false);
-        confidenceSlider.setEnabled(false);
-
-        sliderChangeListener = e -> applyThreshold();
-        confidenceSlider.addChangeListener(sliderChangeListener);
-
-        JPanel sliderPanel = new JPanel();
-        sliderPanel.setLayout(new BoxLayout(sliderPanel, BoxLayout.Y_AXIS));
-        sliderPanel.setBorder(BorderFactory.createTitledBorder("Edge Confidence Filter"));
-        sliderPanel.add(sliderLabel);
-        sliderPanel.add(Box.createVerticalStrut(4));
-        sliderPanel.add(sliderRangeLabel);
-        sliderPanel.add(Box.createVerticalStrut(6));
-        sliderPanel.add(confidenceSlider);
-        sliderPanel.add(Box.createVerticalStrut(6));
-        sliderPanel.add(buildColorLegend());
-
-        // --- Buttons ---
-        JButton exportBtn = new JButton("Export Network as SIF");
-        exportBtn.addActionListener(e -> {
-            try {
-                new ExportGraph(applicationManager, writerManager, fileUtil).export();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage());
-            }
-        });
-        exportBtn.setPreferredSize(new Dimension(175, 25));
-
-        JButton importBtn = new JButton("Import Network from SIF");
-        importBtn.addActionListener(e -> {
-            try {
-                new ImportGraph(
-                        networkFactory, networkManager,
-                        networkViewFactory, networkViewManager,
-                        layoutManager, vmm,
-                        vmfDiscrete, vmfPassthrough,
-                        vsFactory
-                ).importFile();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage());
-            }
-        });
-        importBtn.setPreferredSize(new Dimension(175, 25));
+        // --- Button ---
+        JButton logBtn = new JButton("BLANT Log");
+        logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
+        logBtn.setPreferredSize(new Dimension(145, 25));
 
         JButton sendBtn = new JButton("Send to BLANT");
         sendBtn.addActionListener(e -> {
             try {
-                new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, 
-                    this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).send();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, 
+                    networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, 
+                    this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isMultiThreaded)
+                    .run();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
             }
         });
         sendBtn.setPreferredSize(new Dimension(145, 25));
-
-        JButton logBtn = new JButton("BLANT Log");
-        logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
-        logBtn.setPreferredSize(new Dimension(145, 25));
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        buttonPanel.add(exportBtn);
-        buttonPanel.add(importBtn);
+        
+        // --- Layout ---
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.add(logBtn);
         buttonPanel.add(sendBtn);
 
-        // --- Layout ---
-        add(sliderPanel, BorderLayout.NORTH);
+        add(sliderPanel(), BorderLayout.NORTH);
         add(buttonPanel, BorderLayout.SOUTH);
 
         pack();
@@ -277,13 +223,49 @@ public class NavDashboard extends JFrame {
     }
 
     private JPanel chkSavJPanel() {
-        JPanel panel = new JPanel(new GridLayout(1, 0));
+        JPanel panel = new JPanel(new GridLayout(2, 0));
         JCheckBox chkSave = new JCheckBox("Save the input and the result");
+        JCheckBox chkMulti = new JCheckBox("Use multithreading");
+        chkSave.setSelected(true);
         chkSave.addActionListener(e -> { this.isSaved = chkSave.isSelected(); });
+        chkMulti.addActionListener(e -> { this.isMultiThreaded = chkMulti.isSelected(); });
+
 
         panel.add(chkSave);
+        panel.add(chkMulti);
         return panel;
     }
+
+    private JPanel sliderPanel() {
+        // --- Confidence Slider Panel ---
+        sliderLabel = new JLabel("Confidence Threshold: —");
+        sliderRangeLabel = new JLabel("Import a network to enable filtering");
+        sliderRangeLabel.setFont(sliderRangeLabel.getFont().deriveFont(Font.ITALIC, 11f));
+        sliderRangeLabel.setForeground(Color.GRAY);
+
+        confidenceSlider = new JSlider(0, 1000, 0);
+        confidenceSlider.setMajorTickSpacing(250);
+        confidenceSlider.setMinorTickSpacing(50);
+        confidenceSlider.setPaintTicks(true);
+        confidenceSlider.setPaintLabels(false);
+        confidenceSlider.setEnabled(false);
+
+        sliderChangeListener = e -> applyThreshold();
+        confidenceSlider.addChangeListener(sliderChangeListener);
+
+        JPanel sliderPanel = new JPanel();
+        sliderPanel.setLayout(new BoxLayout(sliderPanel, BoxLayout.Y_AXIS));
+        sliderPanel.setBorder(BorderFactory.createTitledBorder("Edge Confidence Filter"));
+        sliderPanel.add(sliderLabel);
+        sliderPanel.add(Box.createVerticalStrut(4));
+        sliderPanel.add(sliderRangeLabel);
+        sliderPanel.add(Box.createVerticalStrut(6));
+        sliderPanel.add(confidenceSlider);
+        sliderPanel.add(Box.createVerticalStrut(6));
+        sliderPanel.add(buildColorLegend());
+
+        return sliderPanel;
+    };
     /**
      * Called by ImportGraph after a network loads to configure the slider
      * with the actual min/max score range from the data.
@@ -326,7 +308,7 @@ public class NavDashboard extends JFrame {
             if (score == null) return;
 
             if (score >= threshold) {
-                Color gradientColor = ImportGraph.scoreToColor(score, scoreMin, scoreMax);
+                Color gradientColor = VisualUtil.scoreToColor(score, scoreMin, scoreMax);
                 ev.setLockedValue(BasicVisualLexicon.EDGE_VISIBLE, true);
                 ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
                 ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);

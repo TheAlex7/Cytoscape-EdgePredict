@@ -118,4 +118,14 @@ public class VisualUtil {
             JOptionPane.showMessageDialog(null, scrollPane, "Array Data Viewer", JOptionPane.PLAIN_MESSAGE);
         });
     }
+
+    /**
+     * Maps a confidence score to a color on a blue->red gradient.
+     * Low score = blue (#0000FF), high score = red (#FF0000).
+     */
+    public static Color scoreToColor(double score, double min, double max) {
+        float t = (max == min) ? 1f : (float) ((score - min) / (max - min));
+        t = Math.max(0f, Math.min(1f, t));
+        return new Color(t, 0f, 1f - t);
+    }
 }

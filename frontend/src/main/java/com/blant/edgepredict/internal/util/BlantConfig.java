@@ -1,14 +1,4 @@
 package com.blant.edgepredict.internal.util;
-import java.net.URL;
-import java.net.HttpURLConnection;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
-import java.nio.charset.StandardCharsets;
-
-
-// Utility class to hold configuration for BLANT server and job ID
 // Only contains 1 job ID at a time, since the plugin is designed to run one job at a time
 // ISSUE:
 // -------JSION PARSING-------
@@ -35,12 +25,33 @@ public class BlantConfig {
     // URL for progress updates
     public static String PROGRESS_URL = BLANT_URL + "/progress/";
 
-    //Job ID management
     private static String JOB_ID = null;
+    private static int progress = 0;
+    private static boolean isLoad = false;
+
+    //Job ID management
     public static void setJobId(String r) {
         JOB_ID = r;
     }
     public static String getJobId() {
         return JOB_ID;
+    }
+
+    // Progress management
+    public static void setProgress(int p) {
+        progress = p;
+    }
+
+    public static int getProgress() {
+        return progress;
+    }
+
+    // isLoad management
+    public static void setLoad(boolean load) {
+        isLoad = load;
+    }
+
+    public static boolean getLoad() {
+        return isLoad;
     }
 }

@@ -1,6 +1,7 @@
 package com.blant.edgepredict.internal.ui;
 
 import java.awt.event.ActionEvent;
+
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.application.swing.AbstractCyAction;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
@@ -14,8 +15,6 @@ import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
-
-import com.blant.edgepredict.internal.util.BlantConfig;
 
 public class MenuAction extends AbstractCyAction {
 

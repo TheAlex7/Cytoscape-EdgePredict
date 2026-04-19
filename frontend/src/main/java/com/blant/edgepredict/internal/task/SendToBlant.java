@@ -21,7 +21,7 @@ import org.cytoscape.view.model.CyNetworkViewManager;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
-import com.blant.edgepredict.internal.util.BlantPoller;
+import com.blant.edgepredict.internal.util.CacheUtil;
 
 
 public class SendToBlant {
@@ -31,10 +31,12 @@ public class SendToBlant {
     private final CyNetworkManager networkManager;
     private final CyNetworkViewFactory networkViewFactory;
     private final CyNetworkViewManager networkViewManager;
-    private String sampleMethod;
-    private int precisionDigits;
-    private int kVal;
-    private boolean isSaved;
+    private final BlantLogWindow logWindow;
+    private final String sampleMethod;
+    private final int precisionDigits;
+    private final int kVal;
+    private final boolean isSaved;
+    private final boolean isMultithreaded;
 
     public SendToBlant(FileUtil fileUtil,
                        CyNetworkFactory networkFactory,
@@ -44,19 +46,23 @@ public class SendToBlant {
                        String sampleMethod,
                        int precisionDigits,
                        int kVal,
-                       boolean isSaved) {
+                       boolean isSaved,
+                       boolean isMultithreaded,
+                       BlantLogWindow logWindow) {
         this.fileUtil = fileUtil;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
+        this.logWindow = logWindow;
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
         this.isSaved = isSaved;
+        this.isMultithreaded = isMultithreaded;
     }
 
-    public void send() throws Exception {
+    public boolean send() throws Exception {
 
         FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif)", new String[]{"txt", "csv", "sif"});
 
@@ -66,20 +72,31 @@ public class SendToBlant {
                 FileUtil.LOAD,
                 Collections.singletonList(filter)
         );
-        // Todo: Save Input in somewhere + Job Id
-        if (file == null) return;
+        if (file == null) return false;
 
         // Open log window as soon as file is selected
-        BlantLogWindow logWindow = BlantLogWindow.getInstance();
-        BlantPoller poller = BlantPoller.getInstance();
-        logWindow.setVisible(true);
-        logWindow.appendLog("[INFO] File selected: " + file.getName());
-        logWindow.appendLog("[INFO] Sending to BLANT...");
+        this.logWindow.setVisible(true);
+        this.logWindow.appendLog("[INFO] File selected: " + file.getName());
         
-
+        // ByteArrayOutputStream baos_1 = new ByteArrayOutputStream();
+        // String content = "";
+        // baos_1.write(content.getBytes(StandardCharsets.UTF_8));
+        // baos_1.write(Files.readAllBytes(file.toPath()));
+        // if (CacheUtil.getOutputAttempt(content, logWindow)) {
+            //     this.logWindow.appendLog("[INFO] Found locally saved result. Loading cached file...");
+            //     BlantConfig.setLoad(true);
+            //     BlantConfig.setJobId("load");
+            //     return true;
+            // }
+            
+        // Send file to BLANT server
+        this.logWindow.appendLog("[INFO] Sending to BLANT...");
         try {
+            // Generate multipart/form-data request body manually
             String boundary = UUID.randomUUID().toString();
             String LINE_FEED = "\r\n";
+
+            // Input File
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             String headers = "--" + boundary + LINE_FEED
                     + "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + LINE_FEED
@@ -87,6 +104,28 @@ public class SendToBlant {
                     + LINE_FEED;
             baos.write(headers.getBytes(StandardCharsets.UTF_8));
             baos.write(Files.readAllBytes(file.toPath()));
+
+            // Sample Method
+            String sampleMethodPart = "--" + boundary + LINE_FEED
+                        + "Content-Disposition: form-data; name=\"sample_method\"" + LINE_FEED
+                        + LINE_FEED
+                        + this.sampleMethod + LINE_FEED;
+            baos.write(sampleMethodPart.getBytes(StandardCharsets.UTF_8));
+
+            // Precision Digits
+            String precisionDigitsPart = "--" + boundary + LINE_FEED
+                        + "Content-Disposition: form-data; name=\"precision_digits\"" + LINE_FEED
+                        + LINE_FEED
+                        + this.precisionDigits + LINE_FEED;
+            baos.write(precisionDigitsPart.getBytes(StandardCharsets.UTF_8));
+
+            // K Value
+            String kPart = "--" + boundary + LINE_FEED
+                        + "Content-Disposition: form-data; name=\"k\"" + LINE_FEED
+                        + LINE_FEED
+                        + this.kVal + LINE_FEED;
+            baos.write(kPart.getBytes(StandardCharsets.UTF_8));
+
             baos.write((LINE_FEED + "--" + boundary + "--" + LINE_FEED).getBytes(StandardCharsets.UTF_8));
 
             URL url = new URL(BlantConfig.SUBMIT_URL);
@@ -96,35 +135,42 @@ public class SendToBlant {
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
+            // Write the multipart request body to the connection output stream
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(baos.toByteArray());
             } catch (Exception e) {
-                poller.stopPolling();
-                logWindow.appendLog("[ERROR] Failed to send file: " + e.getMessage());
+                this.logWindow.appendLog("[ERROR] Failed to send file: " + e.getMessage());
                 throw e;
             };
             int status = conn.getResponseCode();
 
             // If submission is successful, we expect the response to contain a job ID which we will use to poll for results
-            if (status == 200) {
-                poller.stopPolling();
-                logWindow.appendLog("[INFO] BLANT processing complete. Loading result...");
+            if (status == 200 || status == 409) {
+
+                // Read response to extract job ID
                 byte[] responseBytes = conn.getInputStream().readAllBytes();
                 String responseText = new String(responseBytes, StandardCharsets.UTF_8);
-                // ISSUE: Solution for now
-                // Assuming the response is a JSON string like {"job_id": "12345"}, we extract the job ID (this is to avoid adding a JSON library dependency just for this)
-                // JSON parsing is very basic and brittle here, but it should work as long as the server response format doesn't change
-                // importing json library prevented app from loading so we are doing this manually for now
                 String jobId = responseText.split("\"job_id\"\\s*:\\s*\"")[1].split("\"")[0];
+
+                // Save job ID to config for polling
                 BlantConfig.setJobId(jobId);
-                logWindow.appendLog("[INFO] Job ID: " + jobId);
-                poller.startPolling(BlantConfig.getJobId());
+                this.logWindow.appendLog("[INFO] Job ID: " + jobId);
+
+                if (status == 200) {
+                    this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
+                    // Save Input logs if user has enabled save option
+                    if (this.isSaved){ 
+                        this.logWindow.appendLog(CacheUtil.saveInput(jobId, new String(baos.toByteArray(), StandardCharsets.UTF_8)));
+                        return true;
+                    }
+                }
             }
 
         } catch (Exception ex) {
-            poller.stopPolling();
-            logWindow.appendLog("[ERROR] Exception: " + ex.getMessage());
+            this.logWindow.appendLog("[ERROR] Exception: " + ex.getMessage());
             throw ex;
-        };
+        }
+
+        return true;
     }
 }
