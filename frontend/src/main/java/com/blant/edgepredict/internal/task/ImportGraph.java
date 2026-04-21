@@ -1,5 +1,6 @@
 package com.blant.edgepredict.internal.task;
 
+import java.awt.Color;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -7,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyNetwork;
@@ -28,19 +30,8 @@ import org.cytoscape.work.TaskMonitor;
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.ui.NavDashboard;
 import com.blant.edgepredict.internal.util.BlantConfig;
-import com.blant.edgepredict.internal.util.BlantPoller;
+import com.blant.edgepredict.internal.util.CacheUtil;
 import com.blant.edgepredict.internal.util.VisualUtil;
-
-import java.awt.Color;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-
-import org.cytoscape.view.vizmap.*;
 
 public class ImportGraph {
 
@@ -54,6 +45,9 @@ public class ImportGraph {
     private final VisualMappingFunctionFactory vmfDiscrete;
     private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
+    private final boolean isSaved;
+    private final BlantLogWindow logWindow;
+
 
     public ImportGraph(
             CyNetworkFactory networkFactory,
@@ -64,7 +58,9 @@ public class ImportGraph {
             VisualMappingManager vmm,
             VisualMappingFunctionFactory vmfDiscrete,
             VisualMappingFunctionFactory vmfPassthrough,
-            VisualStyleFactory vsFactory) {
+            VisualStyleFactory vsFactory,
+            boolean isSaved,
+            BlantLogWindow logWindow) {
 
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
@@ -75,12 +71,11 @@ public class ImportGraph {
         this.vmfDiscrete = vmfDiscrete;
         this.vmfPassthrough = vmfPassthrough;
         this.vsFactory = vsFactory;
+        this.isSaved = isSaved;
+        this.logWindow = logWindow;
     }
 
     public void importFile() throws Exception {
-
-        BlantLogWindow logWindow = BlantLogWindow.getInstance();
-
         String jobId = BlantConfig.getJobId();
         if (jobId == null || jobId.isBlank()) {
             JOptionPane.showMessageDialog(null,
@@ -88,31 +83,43 @@ public class ImportGraph {
             return;
         }
 
-        BlantPoller poller = BlantPoller.getInstance();
-
-        logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
-
-        URL url = new URL(BlantConfig.RESULTS_URL + jobId);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-
-        int status = conn.getResponseCode();
-        if (status != 200) {
-            String error = conn.getErrorStream() != null
-                    ? new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)
-                    : "Unknown error";
-            logWindow.appendLog("[ERROR] Failed to fetch result: " + error);
-            JOptionPane.showMessageDialog(null, "Failed to fetch BLANT result: " + error);
+        if (BlantConfig.getLoad()) {
+            String responseText = CacheUtil.getOutput(jobId);
+            this.logWindow.appendLog(responseText);
+            if (responseText.contains("ERROR")) {
+                JOptionPane.showMessageDialog(null, "Locally saved file cannot be read.");
+                return;
+            }
+            processResult(responseText, jobId);
             return;
         }
 
+        
+        this.logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
+        
+        URL url = new URL(BlantConfig.RESULTS_URL + jobId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        int status = conn.getResponseCode();
+        if (status != 200) {
+            String error = conn.getErrorStream() != null
+            ? new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)
+            : "Unknown error";
+            this.logWindow.appendLog("[ERROR] Failed to fetch result: " + error);
+            JOptionPane.showMessageDialog(null, "Failed to fetch BLANT result: " + error);
+            return;
+        }
+        
+        
         String responseText = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        
+        this.logWindow.appendLog("[INFO] Result received. Parsing network...");
+        this.logWindow.appendLog("[DEBUG] Raw response:\n" + responseText);
+        
+        processResult(responseText, jobId);
+    }
 
-        logWindow.appendLog("[INFO] Result received. Parsing network...");
-        logWindow.appendLog("[DEBUG] Raw response:\n" + responseText);
-
-        poller.stopPolling();
-
+    private void processResult(String responseText, String jobId) throws Exception {
         CyNetwork network = networkFactory.createNetwork();
         network.getDefaultNetworkTable().getRow(network.getSUID()).set("name", "BLANT Result");
 
@@ -132,7 +139,7 @@ public class ImportGraph {
 
             String[] row = line.split("\\s+");
             if (row.length < 4) {
-                logWindow.appendLog("[WARN] Skipping malformed line: " + line);
+                this.logWindow.appendLog("[WARN] Skipping malformed line: " + line);
                 continue;
             }
 
@@ -144,7 +151,7 @@ public class ImportGraph {
             try {
                 score = Double.parseDouble(row[3]);
             } catch (Exception e) {
-                logWindow.appendLog("[WARN] Could not parse score: " + line);
+                this.logWindow.appendLog("[WARN] Could not parse score: " + line);
             }
 
             CyNode source = nodeMap.computeIfAbsent(sourceName, name -> {
@@ -169,7 +176,7 @@ public class ImportGraph {
             }
 
             added++;
-            logWindow.appendLog("[DEBUG] Edge: " + sourceName + " -> " + targetName +
+            this.logWindow.appendLog("[DEBUG] Edge: " + sourceName + " -> " + targetName +
                     " (" + interaction + ") score=" + score);
         }
 
@@ -194,7 +201,7 @@ public class ImportGraph {
         final double finalMin = scoreMin;
         final double finalMax = scoreMax;
 
-        logWindow.appendLog("[INFO] Score range: min=" + finalMin + ", max=" + finalMax);
+        this.logWindow.appendLog("[INFO] Score range: min=" + finalMin + ", max=" + finalMax);
 
         networkManager.addNetwork(network);
 
@@ -226,14 +233,18 @@ public class ImportGraph {
             Double score = network.getRow(ev.getModel()).get("confidence_score", Double.class);
             if (score == null) return;
 
-            Color gradientColor = scoreToColor(score, finalMin, finalMax);
+            Color gradientColor = VisualUtil.scoreToColor(score, finalMin, finalMax);
             ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
             ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);
         });
 
         view.updateView();
 
-        logWindow.appendLog("[INFO] Network loaded: " + added + " edges added.");
+        this.logWindow.appendLog("[INFO] Network loaded: " + added + " edges added.");
+
+        if (isSaved) {
+            this.logWindow.appendLog(CacheUtil.saveOutput(jobId, responseText));
+        }
 
         // --- Push score range to the dashboard slider ---
         SwingUtilities.invokeLater(() -> {
@@ -246,15 +257,5 @@ public class ImportGraph {
         JOptionPane.showMessageDialog(null,
                 "Import complete: " + added + " edges added.\n" +
                 String.format("Score range: %.4f – %.4f", finalMin, finalMax));
-    }
-
-    /**
-     * Maps a confidence score to a color on a blue->red gradient.
-     * Low score = blue (#0000FF), high score = red (#FF0000).
-     */
-    public static Color scoreToColor(double score, double min, double max) {
-        float t = (max == min) ? 1f : (float) ((score - min) / (max - min));
-        t = Math.max(0f, Math.min(1f, t));
-        return new Color(t, 0f, 1f - t);
     }
 }
