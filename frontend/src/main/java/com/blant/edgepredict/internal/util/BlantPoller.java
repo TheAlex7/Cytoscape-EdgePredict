@@ -1,117 +1,94 @@
 package com.blant.edgepredict.internal.util;
 
-import javax.swing.*;
+import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-
-import com.blant.edgepredict.internal.util.BlantConfig;
-import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import java.util.List;
+import javax.swing.SwingWorker;
 
 public class BlantPoller {
+   private static BlantPoller instance;
+   private SwingWorker<Void, String> poller;
 
-    private static BlantPoller instance;
-    private SwingWorker<Void, String> poller;
+   private BlantPoller() {
+   }
 
-    private BlantPoller() {}
+   public static BlantPoller getInstance() {
+      if (instance == null) {
+         instance = new BlantPoller();
+      }
 
-    public static BlantPoller getInstance() {
-        if (instance == null) {
-            instance = new BlantPoller();
-        }
-        return instance;
-    }
+      return instance;
+   }
 
-    public void startPolling(String jobId) {
-        poller = new SwingWorker<Void, String>() {
-            @Override
-            protected Void doInBackground() throws Exception {
-                while (!isCancelled()) {
-                    try {
-                        URL url = new URL(BlantConfig.PROGRESS_URL + jobId);
-                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestMethod("GET");
-                        conn.setConnectTimeout(2000);
-                        conn.setReadTimeout(2000);
+   public void startPolling(final String jobId, final PollingCallback callback) {
+      this.poller = new SwingWorker<Void, String>() {
+         private final int MAX_RETRIES = 5;
+         private int retryCount = 0;
 
-                        if (conn.getResponseCode() == 200) {
-                            BufferedReader reader = new BufferedReader(
-                                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+         protected Void doInBackground() throws Exception {
+            while(!this.isCancelled()) {
+               try {
+                  URL url = new URL(BlantConfig.PROGRESS_URL + jobId);
+                  HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+                  conn.setRequestMethod("GET");
+                  conn.setConnectTimeout(2000);
+                  conn.setReadTimeout(2000);
+                  if (conn.getResponseCode() == 200) {
+                     this.retryCount = 0;
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                     StringBuilder sb = new StringBuilder();
 
-                            StringBuilder sb = new StringBuilder();
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                sb.append(line);
-                            }
-                            reader.close();
+                     String line;
+                     while((line = reader.readLine()) != null) {
+                        sb.append(line);
+                     }
 
-                            String response = sb.toString();
-                            // Expected response format: {"progress": 0} or {"progress": 100}
-                            // We will extract the "progress" value and publish it to the log window. Testing purposes
-                            // publish("[PING] " + response);
+                     String response = sb.toString();
+                     this.publish(new String[]{"[PING] " + response});
+                     String progressStr = response.split("\"progress\"\\s*:\\s* ")[1].split("[,}]")[0].trim();
+                     int progress = Integer.parseInt(progressStr);
+                     if (progress == 1) {
+                        BlantConfig.setProgress(progress);
+                        return null;
+                     }
+                  }
 
-
-                            int progress  = extractInt(response, "progress");
-                            
-
-                            if (progress == 1) {
-                                publish("[DONE] Job completed successfully. Final progress: " + progress + "%");
-                                cancel(true);
-                            } else if (progress != 0) {
-                                publish("[WARN] Unexpected state from server (progress=" + progress + "): " + response);
-                                cancel(true);
-                            } else {
-                                publish("[PROGRESS] " + progress + "%");
-                            }
-
-                        } else {
-                            publish("[ERROR] Server returned HTTP " + conn.getResponseCode());
-                        }
-
-                    
-                    } catch (Exception e) {
-                        publish("[ERROR] Could not reach server: " + e.getMessage());
-                    }
-
-                    if (isCancelled()) break;
-
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-                return null;
+                  Thread.sleep(5000L);
+               } catch (Exception e) {
+                  ++this.retryCount;
+                  this.publish(new String[]{String.format("[WARN] Connection failed (%d/%d): %s", this.retryCount, 5, e.getMessage())});
+                  if (this.retryCount >= 5) {
+                     this.publish(new String[]{"[ERROR] Max retries reached. Aborting polling."});
+                     this.cancel(true);
+                  }
+               }
             }
 
-            @Override
-            protected void process(java.util.List<String> chunks) {
-                for (String chunk : chunks) {
-                    BlantLogWindow.getInstance().appendLog(chunk);
-                }
+            return null;
+         }
+
+         protected void process(List<String> chunks) {
+            for(String chunk : chunks) {
+               BlantLogWindow.getInstance().appendLog(chunk);
             }
-        };
-        poller.execute();
-    }
 
-    public void stopPolling() {
-        if (poller != null && !poller.isDone()) {
-            poller.cancel(true);
-        }
-    }
+         }
 
-    // ---------------------------------------------------------------- utils --
+         public void done() {
+            callback.onComplete();
+         }
+      };
+      this.poller.execute();
+   }
 
-    /**
-     * Extracts an integer value from a flat JSON string.
-     * Handles: {"key": 42} and {"key":42} and {"key": 42, ...}
-     */
-    private int extractInt(String json, String key) {
-        String[] parts = json.split("\"" + key + "\"\\s*:\\s*");
-        if (parts.length < 2) throw new NumberFormatException("Key not found: " + key);
-        return Integer.parseInt(parts[1].split("[,}]")[0].trim());
-    }
+   public void stopPolling() {
+      if (this.poller != null && !this.poller.isDone()) {
+         this.poller.cancel(true);
+      }
+
+   }
 }

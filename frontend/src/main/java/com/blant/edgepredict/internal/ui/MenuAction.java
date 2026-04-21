@@ -15,62 +15,41 @@ import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
 
-import com.blant.edgepredict.internal.util.BlantConfig;
-
 public class MenuAction extends AbstractCyAction {
+   private final CyApplicationManager appManager;
+   private final TaskManager taskManager;
+   private final CyNetworkViewWriterManager writerManager;
+   private final FileUtil fileUtil;
+   private final VisualMappingManager vmm;
+   private final VisualMappingFunctionFactory vmfDiscrete;
+   private final VisualMappingFunctionFactory vmfPassthrough;
+   private final VisualStyleFactory vsFactory;
+   private final CyNetworkFactory networkFactory;
+   private final CyNetworkManager networkManager;
+   private final CyNetworkViewFactory networkViewFactory;
+   private final CyNetworkViewManager networkViewManager;
+   private final CyLayoutAlgorithmManager layoutManager;
 
-    private final CyApplicationManager appManager;
-    private final TaskManager taskManager;
-    private final CyNetworkViewWriterManager writerManager;
-    private final FileUtil fileUtil;
-    private final VisualMappingManager vmm;
-    private final VisualMappingFunctionFactory vmfDiscrete;
-    private final VisualMappingFunctionFactory vmfPassthrough;
-    private final VisualStyleFactory vsFactory;
-    private final CyNetworkFactory networkFactory;
-    private final CyNetworkManager networkManager;
-    private final CyNetworkViewFactory networkViewFactory;
-    private final CyNetworkViewManager networkViewManager;
-    private final CyLayoutAlgorithmManager layoutManager;
+   public MenuAction(CyApplicationManager appManager, TaskManager taskManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager) {
+      super("BLANT Prediction Dashboard");
+      this.appManager = appManager;
+      this.taskManager = taskManager;
+      this.writerManager = writerManager;
+      this.fileUtil = fileUtil;
+      this.vmm = vmm;
+      this.vmfDiscrete = vmfDiscrete;
+      this.vmfPassthrough = vmfPassthrough;
+      this.vsFactory = vsFactory;
+      this.networkFactory = networkFactory;
+      this.networkManager = networkManager;
+      this.networkViewFactory = networkViewFactory;
+      this.networkViewManager = networkViewManager;
+      this.layoutManager = layoutManager;
+      this.setPreferredMenu("Apps");
+   }
 
-    public MenuAction(CyApplicationManager appManager,
-                      TaskManager taskManager,
-                      CyNetworkViewWriterManager writerManager,
-                      FileUtil fileUtil,
-                      VisualMappingManager vmm,
-                      VisualMappingFunctionFactory vmfDiscrete,
-                      VisualMappingFunctionFactory vmfPassthrough,
-                      VisualStyleFactory vsFactory,
-                      CyNetworkFactory networkFactory,
-                      CyNetworkManager networkManager,
-                      CyNetworkViewFactory networkViewFactory,
-                      CyNetworkViewManager networkViewManager,
-                      CyLayoutAlgorithmManager layoutManager) {
-        super("Edge Prediction Dashboard");
-        this.appManager = appManager;
-        this.taskManager = taskManager;
-        this.writerManager = writerManager;
-        this.fileUtil = fileUtil;
-        this.vmm = vmm;
-        this.vmfDiscrete = vmfDiscrete;
-        this.vmfPassthrough = vmfPassthrough;
-        this.vsFactory = vsFactory;
-        this.networkFactory = networkFactory;
-        this.networkManager = networkManager;
-        this.networkViewFactory = networkViewFactory;
-        this.networkViewManager = networkViewManager;
-        this.layoutManager = layoutManager;
-        setPreferredMenu("Apps");
-    }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        NavDashboard dashboard = NavDashboard.getInstance(
-                taskManager, appManager, writerManager, fileUtil,
-                vmm, vmfDiscrete, vmfPassthrough, vsFactory,
-                networkFactory, networkManager,
-                networkViewFactory, networkViewManager,
-                layoutManager);
-        dashboard.setVisible(true);
-    }
+   public void actionPerformed(ActionEvent e) {
+      NavDashboard dashboard = NavDashboard.getInstance(this.taskManager, this.appManager, this.writerManager, this.fileUtil, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager);
+      dashboard.setVisible(true);
+   }
 }
