@@ -24,7 +24,8 @@ public class MenuAction extends AbstractCyAction {
     private final CyNetworkViewWriterManager writerManager;
     private final FileUtil fileUtil;
     private final VisualMappingManager vmm;
-    private final VisualMappingFunctionFactory vmf;
+    private final VisualMappingFunctionFactory vmfDiscrete;
+    private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
     private final CyNetworkFactory networkFactory;
     private final CyNetworkManager networkManager;
@@ -37,7 +38,8 @@ public class MenuAction extends AbstractCyAction {
                       CyNetworkViewWriterManager writerManager,
                       FileUtil fileUtil,
                       VisualMappingManager vmm,
-                      VisualMappingFunctionFactory vmf,
+                      VisualMappingFunctionFactory vmfDiscrete,
+                      VisualMappingFunctionFactory vmfPassthrough,
                       VisualStyleFactory vsFactory,
                       CyNetworkFactory networkFactory,
                       CyNetworkManager networkManager,
@@ -50,7 +52,8 @@ public class MenuAction extends AbstractCyAction {
         this.writerManager = writerManager;
         this.fileUtil = fileUtil;
         this.vmm = vmm;
-        this.vmf = vmf;
+        this.vmfDiscrete = vmfDiscrete;
+        this.vmfPassthrough = vmfPassthrough;
         this.vsFactory = vsFactory;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
@@ -62,8 +65,12 @@ public class MenuAction extends AbstractCyAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        NavDashboard dashboard = NavDashboard.getInstance(taskManager, appManager, writerManager, fileUtil, vmm, vmf, vsFactory,
-                networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager);
+        NavDashboard dashboard = NavDashboard.getInstance(
+                taskManager, appManager, writerManager, fileUtil,
+                vmm, vmfDiscrete, vmfPassthrough, vsFactory,
+                networkFactory, networkManager,
+                networkViewFactory, networkViewManager,
+                layoutManager);
         dashboard.setVisible(true);
     }
 }

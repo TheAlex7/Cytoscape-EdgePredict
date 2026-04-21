@@ -1,30 +1,24 @@
 package com.blant.edgepredict.internal.task;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
-
 import java.util.UUID;
 
 import javax.swing.JOptionPane;
 
-import org.cytoscape.model.CyEdge;
-import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
-import org.cytoscape.model.CyNode;
 import org.cytoscape.util.swing.FileChooserFilter;
 import org.cytoscape.util.swing.FileUtil;
-import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.model.CyNetworkViewFactory;
 import org.cytoscape.view.model.CyNetworkViewManager;
-import org.cytoscape.view.model.View;
-import org.cytoscape.view.presentation.property.BasicVisualLexicon;
 
-// Custom imports
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
@@ -37,17 +31,29 @@ public class SendToBlant {
     private final CyNetworkManager networkManager;
     private final CyNetworkViewFactory networkViewFactory;
     private final CyNetworkViewManager networkViewManager;
+    private String sampleMethod;
+    private int precisionDigits;
+    private int kVal;
+    private boolean isSaved;
 
     public SendToBlant(FileUtil fileUtil,
                        CyNetworkFactory networkFactory,
                        CyNetworkManager networkManager,
                        CyNetworkViewFactory networkViewFactory,
-                       CyNetworkViewManager networkViewManager) {
+                       CyNetworkViewManager networkViewManager,
+                       String sampleMethod,
+                       int precisionDigits,
+                       int kVal,
+                       boolean isSaved) {
         this.fileUtil = fileUtil;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
+        this.sampleMethod = sampleMethod;
+        this.precisionDigits = precisionDigits;
+        this.kVal = kVal;
+        this.isSaved = isSaved;
     }
 
     public void send() throws Exception {
@@ -60,7 +66,7 @@ public class SendToBlant {
                 FileUtil.LOAD,
                 Collections.singletonList(filter)
         );
-
+        // Todo: Save Input in somewhere + Job Id
         if (file == null) return;
 
         // Open log window as soon as file is selected
