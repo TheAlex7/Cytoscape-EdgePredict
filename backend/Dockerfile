@@ -11,18 +11,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# COPY everything not in the dockerignore
-
 ENV PATH="$PATH:/app/libwayne/bin"
-# uncomment below line if want to use BLANT
+# COPY everything not in the dockerignore
 COPY BLANT .
 
 COPY native_src ./native_src
 COPY requirements.txt .
 COPY server.py .
-
-# ignoring (inside of .dockerignore) to not interfere with BLANT/makefile 
-# COPY Makefile . 
 
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
@@ -34,15 +29,15 @@ RUN chmod +x native_src/scripts/run_mock.sh
 
 RUN dos2unix native_src/scripts/make_mock.sh 
 RUN chmod +x native_src/scripts/make_mock.sh
-
 RUN ./native_src/scripts/make_mock.sh
 RUN chmod +x native_src/mock/_objs/mock_streams
+
 # RUN chmod +x native_src/mock/_objs/mock_blant
 # --- 
 
 # uncomment below line if want to use BLANT
-RUN ./regression-test-all.sh -make
-RUN chmod +x ./blant
+# RUN ./regression-test-all.sh -make
+# RUN chmod +x ./blant
 
 
 # production

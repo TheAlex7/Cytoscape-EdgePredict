@@ -1,5 +1,3 @@
-//DATA FORMAT: source + "\t" + interaction + "\t" + target + "\t" + confidence + "\n"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

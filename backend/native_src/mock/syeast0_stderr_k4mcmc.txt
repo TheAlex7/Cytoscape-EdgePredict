@@ -1,0 +1,66 @@
+Input file is './networks/syeast0/syeast0.el'
+TMPDIR is /tmp/predict-edges-from-network.D0Q8Xn
+Starting 1 jobs from /tmp/predict-edges-from-network.D0Q8Xn/jobs.txt running at most 12 in parallel using k values 4
+time ./blant -mp -s MCMC -p 1.5L   -k 4 /tmp/predict-edges-from-network.D0Q8Xn/G.el | tee '/tmp/predict-edges-from-network.D0Q8Xn/blant-mp.MCMC.p1.5L.k4.0' | wc >&2
+PARALLEL='parallel 12'
+Note: _seed is 3907232356
+Note: Sampling method is MCMC
+Note: CPC lookup tables: bufLen 428, buf = 0x701aa8d0a000, lkpLen 5632, lkp = 0x5b4ac81ea000
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:48 batch 1 CPU 1.67551s samples 263722 prec mean 4.02e-11 worst 1.34e-10 (g7 count 83868)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:49 batch 2 CPU 2.6393s samples 527444 prec mean 0 worst 0 (g-1 count 0)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:50 batch 3 CPU 3.77373s samples 791166 prec mean 2.13e-10 worst 8.56e-10 (g8 count 4419)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:52 batch 4 CPU 4.97234s samples 1054888 prec mean 1.65e-10 worst 7.69e-10 (g8 count 6357)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:53 batch 5 CPU 6.2692s samples 1318610 prec mean 1.58e-10 worst 6.76e-10 (g8 count 8528)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:54 batch 6 CPU 7.6761s samples 1582332 prec mean 3.76e-11 worst 2.26e-10 (g6 count 118730)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:24:56 batch 7 CPU 9.31395s samples 1846054 prec mean 1.72e-10 worst 6.88e-10 (g8 count 13913)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: RAW sysinfo data: totalram 16730243072 freeram 14517469184 mem_unit 1
+Note: System claims to have totalram 15.5813 GB with 13.5204 free
+Note: 2026-04-18 00:24:58 batch 8 CPU 11.2142s samples 2109776 prec mean 1.58e-10 worst 5.58e-10 (g8 count 17415)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:25:00 batch 9 CPU 13.3529s samples 2373498 prec mean 5.93e-11 worst 1.95e-10 (g6 count 231607)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:25:02 batch 10 CPU 15.8005s samples 2637220 prec mean 1.3e-10 worst 5.53e-10 (g8 count 26324)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: 2026-04-18 00:25:05 batch 11 CPU 18.5566s samples 2900942 prec mean 1.04e-10 worst 4.48e-10 (g8 count 32127)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Note: Mem update: 13.3832GB free; MAX 9.38324GB, usage 1.02563
+Warning: Sampling aborted: no new graphlets discovered after 1005 attempts
+Note: 2026-04-18 00:25:07 batch 12 CPU 20.7038s samples 3164664 prec mean 1.09e-10 worst 5.88e-10 (g8 count 36676)
+Note: using batchSize 263722 to estimate counts with relative precision 0.0316228 (1.5 digits) with 99.6838% confidence
+Warning: Sampling aborted: no new graphlets discovered after 1005 attempts
+Note: 2026-04-18 00:25:11 batch 13 CPU 24.0712s samples 3428386 prec mean 8.39e-12 worst 5.03e-11 (g9 count 2327938)
+Note: Took 24.083788 seconds to sample 3428386 with 1 threads with a sampling throughput of 1.424e+05 iterations/sec in 13 batches.
+Note: Finished sampling; CPU seconds = 24.0714; calling CPCwrapper...
+Note: Finished CPCwrapper; CPU seconds = 24.0715; remainder of time is output
+  68390  569874 4293616
+
+real	0m24.416s
+user	0m22.995s
+sys	0m1.439s
+Only one file, linking blant-mp.MCMC.p1.5L.k4.0 -> blant-mp.MCMC.p1.5L.K
+TMPDIR is /tmp/predict-from-blant-mp.mfwHcp
+processing /tmp/predict-edges-from-network.D0Q8Xn/blant-mp.MCMC.p1.5L.K
+WARNING: alego: no point running '/mnt/c/Users/alex/Documents/Repos/blanttest/libwayne/bin/../gawk-trees/tools/convert/convert.py' because AWKLIBPATH isn't set
+Finished pass 1 (of 3)
+Stats of ALL orbit-pair counts:
+# 23248 mean 170.885 min 0.302629 max 6320.12 stdDev 393.449 4:16:16
+# 22985 mean 140.967 min 0.302629 max 3082.21 stdDev 306.213 4:17:17
+# 33939 mean 541.289 min 0.223205 max 13167.7 stdDev 1222.33 4:14:13
+# 102306 mean 373.037 min 0.170692 max 28952.8 stdDev 1161.52 4:11:11
+# 34069 mean 440.069 min 0.476896 max 7589.6 stdDev 834.248 4:6:6
+Finished pass 2 (of 3)
+Predictive orbits for /tmp/predict-edges-from-network.D0Q8Xn/blant-mp.MCMC.p1.5L.K
+23248	0.4478	6.106e-1256	76.3541 (using log) 4:16:16 0.97619
+22985	0.4527	1.334e-1276	76.9792 (using log) 4:17:17 0.95
+33939	0.4838	8.726e-2235	101.8370 (using log) 4:14:13 0.888889
+102306	0.4804	7.944e-6615	175.1888 (using log) 4:11:11 0.909091
+34069	0.4645	1.66e-2019	96.8095 (using log) 4:6:6 0.909091
+Finished pass 3 (of 3)

@@ -1,17 +1,23 @@
 import subprocess, threading, os
 import hashlib
+import json
 
-def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", sampling_method = "MCMC"):
+def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", sampling_method = "MCMC", MOCK=False):
     if not job_id in jobs:
         return -1 
     process_data = jobs[job_id]
 
     process_data["finished"] = False
+    update_job_data(process_data, process_data["job_data_path"])
 
+    # just for testing
+    if MOCK:
+        COMMAND = ["bash", "./native_src/scripts/run_mock.sh", "./native_src/mock/syeast0_stderr_k4mcmc.txt", "./native_src/mock/syeast0_stdout_k4mcmc.txt"]
+    else:
+        COMMAND = ["bash", "./src/EdgePredict/scripts/predict-edges-from-network.sh", "-s", sampling_method, input_path, k ]
+    
     process = subprocess.Popen(
-        # ["bash", "./native_src/scripts/run_mock.sh", "./native_src/mock/syeast_stderr.txt", "./native_src/mock/mock_output.txt"], # comment this when running BLANT
-        # ["bash", "./native_src/scripts/run_blant.sh", "-k", k, "-s", sampling_method, "-mp", input_path], # deprecated
-        ["bash", "./src/EdgePredict/scripts/predict-edges-from-network.sh", "-s", sampling_method, input_path, k ], # uncomment this when running BLANT
+        COMMAND,
         cwd = "/app",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -42,7 +48,11 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
     stdout_thread.join()
     process.wait()
 
-    process_data["finished"] = True
+    if is_empty_file(process_data["stdout_path"]):
+        process_data["error"] = True
+    else:
+        process_data["finished"] = True
+    update_job_data(process_data, process_data["job_data_path"])
 
 def get_checksum(file_storage, algorithm="sha256", chunk_size=65536):
     hasher = hashlib.new(algorithm)
@@ -58,3 +68,28 @@ def get_checksum(file_storage, algorithm="sha256", chunk_size=65536):
     file_storage.seek(0) 
     
     return hasher.hexdigest()
+
+def parse_line(blant_line: str) -> str:
+    # print(blant_line) # raw line: 'src:dest\tprec\tcount bestCol orbit\n'
+    nodes, confidence, orbit_info = blant_line.split("\t")
+    src, dest = nodes.split(":")
+    count, BEST_COL, orbit = orbit_info.split(" ") # I assume the number is the count of the particular orbit observed
+    return "\t".join([ elem.strip() for elem in (src, dest, confidence, orbit)]) + "\n" # not sure if we should include count
+
+def update_job_data(data, filepath):
+    updated_data = data.copy()
+    if "stderr_queue" in updated_data:
+        del updated_data["stderr_queue"] # not serializable
+    with open(filepath, "w") as file:
+        json.dump(updated_data, file)
+
+def load_job_data(filepath):
+    with open(filepath, "r", encoding="utf-8") as file:
+        return json.load(file)
+    
+def is_empty_file(filepath):
+    with open(filepath, 'r') as file:
+        if not file.read().strip():
+            return True
+        
+    return False
