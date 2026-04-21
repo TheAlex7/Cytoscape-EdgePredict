@@ -62,6 +62,10 @@ public class NavDashboard extends JFrame {
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
 
+<<<<<<< Updated upstream
+=======
+    // Input variables
+>>>>>>> Stashed changes
     private String sampleMethod;
     private int precisionDigits;
     private int kVal;
@@ -70,14 +74,24 @@ public class NavDashboard extends JFrame {
     private CardLayout cardLayout = new CardLayout();
     private JPanel kValCards = new JPanel(cardLayout);
 
+<<<<<<< Updated upstream
     private JSlider confidenceSlider;
     private JTextField thresholdField;       // <-- new
+=======
+    // Slider state
+    private JSlider confidenceSlider;
+    private JTextField thresholdInput;
+    private JButton searchBtn;
+>>>>>>> Stashed changes
     private JLabel sliderLabel;
     private JLabel sliderRangeLabel;
     private double scoreMin = 0.0;
     private double scoreMax = 1.0;
     private ChangeListener sliderChangeListener;
     private boolean syncingControls = false; // <-- prevents feedback loops
+
+    // FIX: activeView must never be stale — always set via setScoreRange()
+    private CyNetworkView activeView;
 
     private NavDashboard(TaskManager taskManager,
                          CyApplicationManager applicationManager,
@@ -120,8 +134,130 @@ public class NavDashboard extends JFrame {
         mainPanel.add(chkSavJPanel());
         add(mainPanel, BorderLayout.CENTER);
 
+<<<<<<< Updated upstream
         // --- Confidence Slider Panel ---
         sliderLabel = new JLabel("Confidence Threshold: —");
+=======
+        // --- Buttons ---
+        JButton logBtn = new JButton("BLANT Log");
+        logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
+        logBtn.setPreferredSize(new Dimension(145, 25));
+
+        JButton sendBtn = new JButton("Send to BLANT");
+        sendBtn.addActionListener(e -> {
+            try {
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory,
+                        networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory,
+                        this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isMultiThreaded)
+                        .run();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(null, "Send to BLANT failed: " + ex.getMessage());
+            }
+        });
+        sendBtn.setPreferredSize(new Dimension(145, 25));
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.add(logBtn);
+        buttonPanel.add(sendBtn);
+
+        add(sliderPanel(), BorderLayout.NORTH);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        pack();
+        setLocationRelativeTo(null);
+        setResizable(false);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    }
+
+    private JPanel SampleMethodJPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 1));
+
+        JLabel subSample = new JLabel("Sample Method");
+
+        String[] arrSample = {
+                "MCMC (Markov Chain Monte Carlo)",
+                "NBE (Node Based Expansion)",
+                "EBE (Edge Based Expansion)",
+                "RES (Reservior sampling)",
+                "AR (accept/reject)"
+        };
+        JComboBox<String> jcbSample = new JComboBox<>(arrSample);
+        jcbSample.addActionListener(e -> this.sampleMethod = (String) jcbSample.getSelectedItem());
+
+        panel.add(subSample);
+        panel.add(jcbSample);
+        return panel;
+    }
+
+    private JPanel PrecisionDigitspJPanel() {
+        JPanel panel = new JPanel(new GridLayout(3, 1));
+
+        JLabel subPrec = new JLabel("Precision Digits");
+
+        Integer[] arrPrec = {1, 2, 3, 4, 5};
+        JComboBox<Integer> jcbPrec = new JComboBox<>(arrPrec);
+        jcbPrec.addActionListener(e -> this.precisionDigits = (int) jcbPrec.getSelectedItem());
+
+        JLabel subPrecWarn = new JLabel(
+                "*Warning! Increasing precision digit will cause runtime increase in quadratic manner!");
+
+        panel.add(subPrec);
+        panel.add(jcbPrec);
+        panel.add(subPrecWarn);
+        return panel;
+    }
+
+    private JPanel GraphTypeJPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 1));
+
+        JLabel subType = new JLabel("Graph Type");
+        String[] arrType = {"Undirected", "Directed"};
+        JComboBox<String> jcbType = new JComboBox<>(arrType);
+        jcbType.addActionListener(e -> {
+            this.graphType = (String) jcbType.getSelectedItem();
+            cardLayout.show(this.kValCards, this.graphType);
+        });
+
+        panel.add(subType);
+        panel.add(jcbType);
+        return panel;
+    }
+
+    private JPanel kValJPanel() {
+        JPanel outerPanel = new JPanel(new GridLayout(0, 1));
+        JLabel subK = new JLabel("K-values");
+
+        Integer[] arrKUndirected = {4, 5, 6, 7, 8};
+        JComboBox<Integer> jcbKUndirected = new JComboBox<>(arrKUndirected);
+        jcbKUndirected.addActionListener(e -> this.kVal = (int) jcbKUndirected.getSelectedItem());
+
+        Integer[] arrKDirected = {3, 4, 5, 6};
+        JComboBox<Integer> jcbKDirected = new JComboBox<>(arrKDirected);
+        jcbKDirected.addActionListener(e -> this.kVal = (int) jcbKDirected.getSelectedItem());
+
+        this.kValCards.add(jcbKUndirected, "Undirected");
+        this.kValCards.add(jcbKDirected, "Directed");
+
+        outerPanel.add(subK);
+        outerPanel.add(this.kValCards);
+        return outerPanel;
+    }
+
+    private JPanel chkSavJPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 0));
+        JCheckBox chkSave = new JCheckBox("Save the input and the result");
+        JCheckBox chkMulti = new JCheckBox("Use multithreading");
+        chkSave.setSelected(true);
+        chkSave.addActionListener(e -> this.isSaved = chkSave.isSelected());
+        chkMulti.addActionListener(e -> this.isMultiThreaded = chkMulti.isSelected());
+
+        panel.add(chkSave);
+        panel.add(chkMulti);
+        return panel;
+    }
+
+    private JPanel sliderPanel() {
+>>>>>>> Stashed changes
         sliderRangeLabel = new JLabel("Import a network to enable filtering");
         sliderRangeLabel.setFont(sliderRangeLabel.getFont().deriveFont(Font.ITALIC, 11f));
         sliderRangeLabel.setForeground(Color.GRAY);
@@ -133,6 +269,7 @@ public class NavDashboard extends JFrame {
         confidenceSlider.setPaintLabels(false);
         confidenceSlider.setEnabled(false);
 
+<<<<<<< Updated upstream
         sliderChangeListener = e -> {
             if (syncingControls) return;
             syncingControls = true;
@@ -166,18 +303,56 @@ public class NavDashboard extends JFrame {
         thresholdRow.add(sliderLabel);
         thresholdRow.add(Box.createHorizontalStrut(8));
         thresholdRow.add(thresholdField);
+=======
+        thresholdInput = new JTextField(8);
+        thresholdInput.setEnabled(false);
+        thresholdInput.setToolTipText("Type threshold and press Enter");
+
+        searchBtn = new JButton("Go");
+        searchBtn.setEnabled(false);
+
+        searchBtn.addActionListener(e -> applySearchThreshold());
+        thresholdInput.addActionListener(e -> applySearchThreshold());
+
+        // FIX: define the listener once and keep a reference so it can be
+        // safely removed before re-adding in setScoreRange() — prevents
+        // duplicate listeners stacking up across multiple network imports.
+        sliderChangeListener = e -> {
+            if (!confidenceSlider.isEnabled()) return; // guard against spurious events during setup
+
+            double fraction = confidenceSlider.getValue() / 1000.0;
+            double threshold = scoreMin + fraction * (scoreMax - scoreMin);
+
+            thresholdInput.setText(String.format("%.4f", threshold));
+            thresholdInput.setForeground(Color.BLACK);
+
+            applyThreshold();
+        };
+
+        confidenceSlider.addChangeListener(sliderChangeListener);
+
+        JPanel thresholdRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        sliderLabel = new JLabel("Confidence Threshold:");
+        thresholdRow.add(sliderLabel);
+        thresholdRow.add(thresholdInput);
+>>>>>>> Stashed changes
 
         JPanel sliderPanel = new JPanel();
         sliderPanel.setLayout(new BoxLayout(sliderPanel, BoxLayout.Y_AXIS));
         sliderPanel.setBorder(BorderFactory.createTitledBorder("Edge Confidence Filter"));
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         sliderPanel.add(thresholdRow);
         sliderPanel.add(Box.createVerticalStrut(4));
         sliderPanel.add(sliderRangeLabel);
         sliderPanel.add(Box.createVerticalStrut(6));
         sliderPanel.add(confidenceSlider);
-        sliderPanel.add(Box.createVerticalStrut(6));
+        sliderPanel.add(Box.createVerticalStrut(4));
         sliderPanel.add(buildColorLegend());
 
+<<<<<<< Updated upstream
         // --- Buttons ---
         JButton exportBtn = new JButton("Export Network as SIF");
         exportBtn.addActionListener(e -> {
@@ -276,13 +451,49 @@ public class NavDashboard extends JFrame {
         this.scoreMin = min;
         this.scoreMax = max;
 
+=======
+        return sliderPanel;
+    }
+
+    /**
+     * Called by ImportGraph after a network loads to configure the slider
+     * with the actual min/max score range and store the view directly.
+     *
+     * FIX: always removes the listener before mutating slider state, then
+     * re-adds it — prevents the listener firing mid-setup with a half-valid
+     * scoreMin/scoreMax and a stale activeView.
+     */
+    public void setScoreRange(double min, double max, CyNetworkView view) {
+        if (view == null) {
+            System.err.println("[NavDashboard] setScoreRange called with null view — ignoring");
+            return;
+        }
+
+        // Validate range; if degenerate, expand slightly so slider math doesn't divide by zero
+        if (min >= max) {
+            System.err.println("[NavDashboard] setScoreRange: min (" + min + ") >= max (" + max
+                    + ") — expanding range by ±0.0001");
+            min = min - 0.0001;
+            max = max + 0.0001;
+        }
+
+        this.scoreMin   = min;
+        this.scoreMax   = max;
+        this.activeView = view;
+
+        // Detach listener before touching the slider to avoid mid-setup callbacks
+>>>>>>> Stashed changes
         confidenceSlider.removeChangeListener(sliderChangeListener);
+        confidenceSlider.setEnabled(false); // extra guard during reset
+
         confidenceSlider.setMinimum(0);
         confidenceSlider.setMaximum(1000);
         confidenceSlider.setValue(0);
+
         confidenceSlider.setEnabled(true);
         confidenceSlider.addChangeListener(sliderChangeListener);
 
+<<<<<<< Updated upstream
         thresholdField.setEnabled(true);
         thresholdField.setText(String.format("%.4f", min));
         thresholdField.setForeground(Color.BLACK);
@@ -294,14 +505,86 @@ public class NavDashboard extends JFrame {
 
     /**
      * Applies the given threshold value to the network view.
+=======
+        thresholdInput.setEnabled(true);
+        thresholdInput.setForeground(Color.BLACK);
+        thresholdInput.setText(String.format("%.4f", min));
+        searchBtn.setEnabled(true);
+
+        sliderLabel.setText(String.format("Confidence Threshold: %.4f", min));
+        sliderRangeLabel.setText(String.format(
+                "Range: %.4f – %.4f   |   Drag to hide low-confidence edges", min, max));
+
+        System.out.println("[NavDashboard] setScoreRange: min=" + min + " max=" + max
+                + " view=" + view.getSUID());
+
+        // Apply immediately so the graph reflects the initial state
+        applyThreshold();
+    }
+
+    /**
+     * Parses the threshold input field, clamps to valid range,
+     * and snaps the slider to the corresponding position.
+     */
+    private void applySearchThreshold() {
+        String text = thresholdInput.getText().trim();
+        try {
+            double value = Double.parseDouble(text);
+
+            value = Math.max(scoreMin, Math.min(scoreMax, value));
+
+            double fraction = (scoreMax - scoreMin) == 0 ? 0
+                    : (value - scoreMin) / (scoreMax - scoreMin);
+            int sliderPos = (int) Math.round(fraction * 1000);
+
+            thresholdInput.setForeground(Color.BLACK);
+
+            // Setting the slider value triggers sliderChangeListener -> applyThreshold()
+            confidenceSlider.setValue(sliderPos);
+
+        } catch (NumberFormatException ex) {
+            thresholdInput.setForeground(Color.RED);
+            thresholdInput.setToolTipText("Invalid number: " + text);
+        }
+    }
+
+    /**
+     * Applies the current slider threshold: hides edges below it and
+     * repaints visible edges with the blue->red gradient.
+     *
+     * FIX: resolves the view from activeView first, falls back to
+     * applicationManager only as a last resort, and logs clearly when
+     * neither is available so the silent no-op is visible in the console.
+>>>>>>> Stashed changes
      */
     private void applyThreshold(double threshold) {
         sliderLabel.setText("Confidence Threshold:");
 
-        CyNetworkView view = applicationManager.getCurrentNetworkView();
-        if (view == null) return;
+        // FIX: prefer the stored activeView; only fall back to applicationManager
+        // if it is somehow null (e.g. view was disposed between calls).
+        CyNetworkView view = activeView;
+        if (view == null) {
+            view = applicationManager.getCurrentNetworkView();
+        }
+        if (view == null) {
+            System.err.println("[NavDashboard] applyThreshold: no view available — "
+                    + "call setScoreRange() after importing a network");
+            return;
+        }
 
         CyNetwork network = view.getModel();
+        if (network == null) {
+            System.err.println("[NavDashboard] applyThreshold: view has no model");
+            return;
+        }
+
+        // FIX: warn once if the confidence_score column is missing entirely,
+        // rather than silently skipping every edge.
+        if (network.getDefaultEdgeTable().getColumn("confidence_score") == null) {
+            System.err.println("[NavDashboard] applyThreshold: 'confidence_score' column not found "
+                    + "in edge table — check that the import task writes this column");
+            return;
+        }
 
         view.getEdgeViews().forEach(ev -> {
             CyRow row = network.getRow(ev.getModel());
@@ -355,6 +638,7 @@ public class NavDashboard extends JFrame {
         return wrapper;
     }
 
+<<<<<<< Updated upstream
     private JPanel SampleMethodJPanel() {
         JPanel panel = new JPanel(new GridLayout(2, 1));
         JLabel subSample = new JLabel("Sample Method");
@@ -418,6 +702,8 @@ public class NavDashboard extends JFrame {
         return panel;
     }
 
+=======
+>>>>>>> Stashed changes
     public static NavDashboard getExistingInstance() {
         return instance;
     }

@@ -54,6 +54,11 @@ public class ImportGraph {
     private final VisualMappingFunctionFactory vmfDiscrete;
     private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
+<<<<<<< Updated upstream
+=======
+    private final boolean isSaved;
+    private final BlantLogWindow logWindow;
+>>>>>>> Stashed changes
 
     public ImportGraph(
             CyNetworkFactory networkFactory,
@@ -83,15 +88,38 @@ public class ImportGraph {
 
         String jobId = BlantConfig.getJobId();
         if (jobId == null || jobId.isBlank()) {
-            JOptionPane.showMessageDialog(null,
-                    "No BLANT job ID found. Please run 'Send to BLANT' first.");
+            SwingUtilities.invokeLater(() ->
+                JOptionPane.showMessageDialog(null,
+                        "No BLANT job ID found. Please run 'Send to BLANT' first."));
             return;
         }
 
+<<<<<<< Updated upstream
         BlantPoller poller = BlantPoller.getInstance();
 
         logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
 
+=======
+        if (BlantConfig.getLoad()) {
+            String responseText = CacheUtil.getOutput(jobId);
+            this.logWindow.appendLog(responseText);
+            if (responseText.contains("ERROR")) {
+                SwingUtilities.invokeLater(() ->
+                    JOptionPane.showMessageDialog(null, "Locally saved file cannot be read."));
+                return;
+            }
+            // Run processResult on EDT
+            final String text = responseText;
+            SwingUtilities.invokeLater(() -> {
+                try { processResult(text, jobId); }
+                catch (Exception ex) { ex.printStackTrace(); }
+            });
+            return;
+        }
+
+        this.logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
+
+>>>>>>> Stashed changes
         URL url = new URL(BlantConfig.RESULTS_URL + jobId);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
@@ -101,10 +129,33 @@ public class ImportGraph {
             String error = conn.getErrorStream() != null
                     ? new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)
                     : "Unknown error";
+<<<<<<< Updated upstream
             logWindow.appendLog("[ERROR] Failed to fetch result: " + error);
             JOptionPane.showMessageDialog(null, "Failed to fetch BLANT result: " + error);
             return;
         }
+=======
+            this.logWindow.appendLog("[ERROR] Failed to fetch result: " + error);
+            SwingUtilities.invokeLater(() ->
+                JOptionPane.showMessageDialog(null, "Failed to fetch BLANT result: " + error));
+            return;
+        }
+
+        String responseText = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        this.logWindow.appendLog("[INFO] Result received. Parsing network...");
+        this.logWindow.appendLog("[DEBUG] Raw response:\n" + responseText);
+
+        // Run processResult on EDT so all Cytoscape view/model calls
+        // happen on the correct thread and the slider update works
+        final String finalResponse = responseText;
+        final String finalJobId = jobId;
+        SwingUtilities.invokeLater(() -> {
+            try { processResult(finalResponse, finalJobId); }
+            catch (Exception ex) { ex.printStackTrace(); }
+        });
+    }
+>>>>>>> Stashed changes
 
         String responseText = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
@@ -116,8 +167,12 @@ public class ImportGraph {
         CyNetwork network = networkFactory.createNetwork();
         network.getDefaultNetworkTable().getRow(network.getSUID()).set("name", "BLANT Result");
 
+        // Create edge columns
         if (network.getDefaultEdgeTable().getColumn("confidence_score") == null) {
             network.getDefaultEdgeTable().createColumn("confidence_score", Double.class, false);
+        }
+        if (network.getDefaultEdgeTable().getColumn("orbit_pair") == null) {
+            network.getDefaultEdgeTable().createColumn("orbit_pair", String.class, false);
         }
 
         Map<String, CyNode> nodeMap = new HashMap<>();
@@ -131,21 +186,28 @@ public class ImportGraph {
             if (line.isEmpty() || line.startsWith("#")) continue;
 
             String[] row = line.split("\\s+");
+<<<<<<< Updated upstream
             if (row.length < 4) {
                 logWindow.appendLog("[WARN] Skipping malformed line: " + line);
+=======
+            if (row.length < 3) {
+                this.logWindow.appendLog("[WARN] Skipping malformed line: " + line);
+>>>>>>> Stashed changes
                 continue;
             }
 
-            String sourceName = row[0];
-            String interaction = row[1];
-            String targetName = row[2];
+            String sourceName  = row[0];
+            String interaction = "predicted";
+            String targetName  = row[1];
 
             Double score = null;
             try {
-                score = Double.parseDouble(row[3]);
+                score = Double.parseDouble(row[2]);
             } catch (Exception e) {
                 logWindow.appendLog("[WARN] Could not parse score: " + line);
             }
+
+            String orbitPair = row.length >= 4 ? row[3] : null;
 
             CyNode source = nodeMap.computeIfAbsent(sourceName, name -> {
                 CyNode n = network.addNode();
@@ -167,10 +229,18 @@ public class ImportGraph {
             if (score != null) {
                 network.getRow(edge).set("confidence_score", score);
             }
+            if (orbitPair != null) {
+                network.getRow(edge).set("orbit_pair", orbitPair);
+            }
 
             added++;
+<<<<<<< Updated upstream
             logWindow.appendLog("[DEBUG] Edge: " + sourceName + " -> " + targetName +
                     " (" + interaction + ") score=" + score);
+=======
+            this.logWindow.appendLog("[DEBUG] Edge: " + sourceName + " -> " + targetName +
+                    " (" + interaction + ") score=" + score + " orbit_pair=" + orbitPair);
+>>>>>>> Stashed changes
         }
 
         // --- Compute min/max confidence score across all edges ---
@@ -185,7 +255,6 @@ public class ImportGraph {
             }
         }
 
-        // Guard: fall back to 0-1 if no scores were found
         if (scoreMin == Double.MAX_VALUE) {
             scoreMin = 0.0;
             scoreMax = 1.0;
@@ -193,6 +262,7 @@ public class ImportGraph {
 
         final double finalMin = scoreMin;
         final double finalMax = scoreMax;
+        final int finalAdded = added;
 
         logWindow.appendLog("[INFO] Score range: min=" + finalMin + ", max=" + finalMax);
 
@@ -217,34 +287,53 @@ public class ImportGraph {
             });
         }
 
-        // Apply visual style — this sets the node label passthrough mapping
-        // so node names appear automatically from CyNetwork.NAME
         VisualUtil.applyStyles(view, vmm, vmfDiscrete, vmfPassthrough, vsFactory);
 
-        // --- Apply initial gradient colors to all edges ---
+        // --- Apply gradient colors + tooltips to all edges ---
         view.getEdgeViews().forEach(ev -> {
-            Double score = network.getRow(ev.getModel()).get("confidence_score", Double.class);
-            if (score == null) return;
+            CyEdge edgeModel = ev.getModel();
+            Double score     = network.getRow(edgeModel).get("confidence_score", Double.class);
+            String orbitPair = network.getRow(edgeModel).get("orbit_pair", String.class);
+            String edgeName  = network.getRow(edgeModel).get(CyNetwork.NAME, String.class);
 
+<<<<<<< Updated upstream
             Color gradientColor = scoreToColor(score, finalMin, finalMax);
             ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
             ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);
+=======
+            if (score != null) {
+                Color gradientColor = VisualUtil.scoreToColor(score, finalMin, finalMax);
+                ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
+                ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);
+            }
+
+            String tooltip = "<html><b>" + edgeName + "</b><br>"
+                    + "Score: " + (score != null ? String.format("%.6f", score) : "—") + "<br>"
+                    + "Orbit Pair: " + (orbitPair != null ? orbitPair : "—") + "</html>";
+            ev.setLockedValue(BasicVisualLexicon.EDGE_TOOLTIP, tooltip);
+>>>>>>> Stashed changes
         });
 
         view.updateView();
 
+<<<<<<< Updated upstream
         logWindow.appendLog("[INFO] Network loaded: " + added + " edges added.");
+=======
+        this.logWindow.appendLog("[INFO] Network loaded: " + finalAdded + " edges added.");
 
-        // --- Push score range to the dashboard slider ---
-        SwingUtilities.invokeLater(() -> {
-            NavDashboard dashboard = NavDashboard.getExistingInstance();
-            if (dashboard != null) {
-                dashboard.setScoreRange(finalMin, finalMax);
-            }
-        });
+        if (isSaved) {
+            this.logWindow.appendLog(CacheUtil.saveOutput(jobId, responseText));
+        }
+>>>>>>> Stashed changes
+
+        // --- Push score range + view to dashboard, then show completion dialog ---
+        NavDashboard dashboard = NavDashboard.getExistingInstance();
+        if (dashboard != null) {
+            dashboard.setScoreRange(finalMin, finalMax, view);
+        }
 
         JOptionPane.showMessageDialog(null,
-                "Import complete: " + added + " edges added.\n" +
+                "Import complete: " + finalAdded + " edges added.\n" +
                 String.format("Score range: %.4f – %.4f", finalMin, finalMax));
     }
 

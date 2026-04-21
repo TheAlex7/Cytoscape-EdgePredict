@@ -11,8 +11,13 @@
   <groupId>com.blant.edgepredict</groupId>
   <artifactId>BLANT</artifactId>
   <packaging>bundle</packaging>
+<<<<<<< Updated upstream
   <version>1.45</version>
   <name>Edge Prediction for Cytoscape</name>
+=======
+  <version>1.500</version>
+  <name>BLANT for Cytoscape</name>
+>>>>>>> Stashed changes
 
   <build>
     <plugins>
