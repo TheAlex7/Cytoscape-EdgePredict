@@ -36,7 +36,7 @@ RUN chmod +x native_src/mock/_objs/mock_streams
 # --- 
 
 # uncomment below line if want to use BLANT
-# RUN ./regression-test-all.sh -make
+RUN ./regression-test-all.sh -make
 # RUN chmod +x ./blant
 
 
