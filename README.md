@@ -53,7 +53,12 @@ docker build -t flask-blant .
 docker run -p 49161:5000 flask-blant
 ```
 
-### NOTE: <local_host_port>:<internal_docker_port>
+##### NOTE: <local_host_port>:<internal_docker_port>
+
+### To save job data to a path use a volume mount
+```
+docker run -p 49161:5000 -v host/machine/job/dir:/app/jobs flask-blant
+```
 
 ### API Documentation
 ```

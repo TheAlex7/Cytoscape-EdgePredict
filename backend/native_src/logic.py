@@ -1,4 +1,4 @@
-import subprocess, threading, os
+import subprocess, threading
 import hashlib
 import json
 
@@ -10,7 +10,6 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
     process_data["finished"] = False
     update_job_data(process_data, process_data["job_data_path"])
 
-    # just for testing
     if MOCK:
         COMMAND = ["bash", "./native_src/scripts/run_mock.sh", "./native_src/mock/syeast0_stderr_k4mcmc.txt", "./native_src/mock/syeast0_stdout_k4mcmc.txt"]
     else:
