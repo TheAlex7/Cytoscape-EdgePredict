@@ -1,44 +1,27 @@
 package com.blant.edgepredict.internal.util;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 public class BlantConfig {
-   public static String BLANT_URL = "http://localhost:49161";
-   public static String SUBMIT_URL;
-   public static String RESULTS_URL;
-   public static String PROGRESS_URL;
-   private static String JOB_ID;
-   private static int progress;
-   private static boolean isLoad;
+    public static final String BLANT_URL = "http://localhost:49161";
+    public static final String SUBMIT_URL = BLANT_URL + "/blant";
+    public static final String RESULTS_URL = BLANT_URL + "/results/";
+    public static final String PROGRESS_URL = BLANT_URL + "/progress/";
 
-   public static void setJobId(String r) {
-      JOB_ID = r;
-   }
+    private static final AtomicReference<String> JOB_ID = new AtomicReference<>(null);
+    private static final AtomicInteger progress = new AtomicInteger(0);
+    private static final AtomicBoolean isLoad = new AtomicBoolean(false);
 
-   public static String getJobId() {
-      return JOB_ID;
-   }
+    private BlantConfig() {}
 
-   public static void setProgress(int p) {
-      progress = p;
-   }
+    public static void setJobId(String r) { JOB_ID.set(r); }
+    public static String getJobId() { return JOB_ID.get(); }
 
-   public static int getProgress() {
-      return progress;
-   }
+    public static void setProgress(int p) { progress.set(p); }
+    public static int getProgress() { return progress.get(); }
 
-   public static void setLoad(boolean load) {
-      isLoad = load;
-   }
-
-   public static boolean getLoad() {
-      return isLoad;
-   }
-
-   static {
-      SUBMIT_URL = BLANT_URL + "/blant";
-      RESULTS_URL = BLANT_URL + "/results/";
-      PROGRESS_URL = BLANT_URL + "/progress/";
-      JOB_ID = null;
-      progress = 0;
-      isLoad = false;
-   }
+    public static void setLoad(boolean load) { isLoad.set(load); }
+    public static boolean getLoad() { return isLoad.get(); }
 }

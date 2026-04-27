@@ -4,5 +4,7 @@ uploads
 *.pyc
 .env
 venv/
+.gitignore
 .git/
+!BLANT/.git/
 ./Makefile

@@ -7,6 +7,10 @@ import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -24,6 +28,7 @@ import org.cytoscape.model.events.RowsSetEvent;
 import org.cytoscape.model.events.RowsSetListener;
 
 public class EdgeDetailPanel extends JDialog {
+   private static final List<EdgeDetailPanel> openPopups = new ArrayList<>();
    private static final Color HEADER_BG = new Color(45, 55, 72);
    private static final Color HEADER_FG;
    private static final Color LABEL_FG;
@@ -74,9 +79,23 @@ public class EdgeDetailPanel extends JDialog {
       this.add(footer, "South");
       this.pack();
       this.setResizable(false);
+      this.setAlwaysOnTop(true);
       Point mouse = MouseInfo.getPointerInfo().getLocation();
       this.setLocation(mouse.x + 12, mouse.y + 12);
+      openPopups.add(this);
+      this.addWindowListener(new WindowAdapter() {
+         @Override
+         public void windowClosed(WindowEvent e) {
+            openPopups.remove(EdgeDetailPanel.this);
+         }
+      });
       this.setVisible(true);
+   }
+
+   public static void closeAll() {
+      List<EdgeDetailPanel> snapshot = new ArrayList<>(openPopups);
+      openPopups.clear();
+      snapshot.forEach(EdgeDetailPanel::dispose);
    }
 
    private JPanel buildRow(String label, String value) {
