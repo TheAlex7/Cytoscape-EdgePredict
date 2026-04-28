@@ -167,11 +167,23 @@ public class NodeDetailPanel extends JDialog {
         pack();
         setResizable(false);
         setAlwaysOnTop(true);
+        setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         Point mouse = MouseInfo.getPointerInfo().getLocation();
         setLocation(mouse.x + 12, mouse.y + 12);
         openPopups.add(this);
         addWindowListener(new WindowAdapter() {
-            @Override public void windowClosed(WindowEvent e) { openPopups.remove(NodeDetailPanel.this); }
+            @Override public void windowClosed(WindowEvent e) {
+                openPopups.remove(NodeDetailPanel.this);
+                // Deselect the node so clicking it again fires a new selection event
+                if (network != null && nodeName != null) {
+                    for (CyNode n : network.getNodeList()) {
+                        if (nodeName.equals(network.getRow(n).get("name", String.class))) {
+                            network.getRow(n).set("selected", false);
+                            break;
+                        }
+                    }
+                }
+            }
         });
         setVisible(true);
     }

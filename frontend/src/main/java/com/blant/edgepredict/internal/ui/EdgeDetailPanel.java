@@ -20,6 +20,8 @@ import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.SwingUtilities;
 import org.cytoscape.application.CyApplicationManager;
+import org.cytoscape.model.CyEdge;
+import org.cytoscape.model.CyIdentifiable;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyRow;
 import org.cytoscape.model.CyTable;
@@ -36,8 +38,13 @@ public class EdgeDetailPanel extends JDialog {
    private static final Color DIVIDER;
    private static final Color BTN_BG;
 
-   public EdgeDetailPanel(Frame parent, String source, String target, String interaction, Double score, String orbitPair) {
+   private final CyNetwork network;
+   private final long edgeSUID;
+
+   public EdgeDetailPanel(Frame parent, String source, String target, String interaction, Double score, String orbitPair, CyNetwork network, long edgeSUID) {
       super(parent, "Edge Details", false);
+      this.network = network;
+      this.edgeSUID = edgeSUID;
       this.setLayout(new BorderLayout());
       this.getRootPane().setBorder(BorderFactory.createLineBorder(DIVIDER, 1));
       JPanel header = new JPanel(new BorderLayout());
@@ -80,6 +87,7 @@ public class EdgeDetailPanel extends JDialog {
       this.pack();
       this.setResizable(false);
       this.setAlwaysOnTop(true);
+      this.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
       Point mouse = MouseInfo.getPointerInfo().getLocation();
       this.setLocation(mouse.x + 12, mouse.y + 12);
       openPopups.add(this);
@@ -87,6 +95,15 @@ public class EdgeDetailPanel extends JDialog {
          @Override
          public void windowClosed(WindowEvent e) {
             openPopups.remove(EdgeDetailPanel.this);
+            // Deselect the edge so clicking it again fires a new selection event
+            if (network != null) {
+               for (CyEdge edge : network.getEdgeList()) {
+                  if (edge.getSUID() == edgeSUID) {
+                     network.getRow(edge).set("selected", false);
+                     break;
+                  }
+               }
+            }
          }
       });
       this.setVisible(true);
@@ -145,6 +162,7 @@ public class EdgeDetailPanel extends JDialog {
                   Boolean selected = (Boolean)record.getValue();
                   if (selected != null && selected) {
                      CyRow row = record.getRow();
+                     Long edgeSUID = row.get(CyIdentifiable.SUID, Long.class);
                      String edgeName = (String)row.get("name", String.class);
                      Double score = (Double)row.get("confidence_score", Double.class);
                      String orbitPair = (String)row.get("orbit_pair", String.class);
@@ -156,11 +174,12 @@ public class EdgeDetailPanel extends JDialog {
                         parsedTarget = edgeName.substring(edgeName.indexOf(")") + 1).trim();
                      }
 
-                     // Fix: capture effectively-final copies for use inside the lambda
                      final String finalSource = parsedSource;
                      final String finalTarget = parsedTarget;
+                     final CyNetwork finalNetwork = network;
+                     final long finalSUID = edgeSUID != null ? edgeSUID : -1L;
 
-                     SwingUtilities.invokeLater(() -> new EdgeDetailPanel((Frame)null, finalSource, finalTarget, interaction, score, orbitPair));
+                     SwingUtilities.invokeLater(() -> new EdgeDetailPanel((Frame)null, finalSource, finalTarget, interaction, score, orbitPair, finalNetwork, finalSUID));
                   }
                }
 
