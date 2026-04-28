@@ -86,7 +86,7 @@ public class NavDashboard extends JFrame {
         logBtn.setPreferredSize(new Dimension(120, 25));
 
         JButton closePopupsBtn = new JButton("Close All Popups");
-        closePopupsBtn.addActionListener(e -> EdgeDetailPanel.closeAll());
+        closePopupsBtn.addActionListener(e -> { EdgeDetailPanel.closeAll(); NodeDetailPanel.closeAll(); });
         closePopupsBtn.setPreferredSize(new Dimension(120, 25));
 
         JButton sendBtn = new JButton("Send to BLANT");
@@ -109,6 +109,7 @@ public class NavDashboard extends JFrame {
         this.setLocationRelativeTo((Component) null);
         this.setResizable(false);
         this.setAlwaysOnTop(true);
+        this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
         this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 

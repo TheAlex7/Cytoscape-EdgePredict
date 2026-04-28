@@ -46,10 +46,12 @@ public class VisualUtil {
             DiscreteMapping<String, Paint> edgeColor = (DiscreteMapping)discreteVmf.createVisualMappingFunction(colName, String.class, BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT);
             edgeColor.putMapValue("predicted", Color.GREEN);
             edgeColor.putMapValue("Predicted", Color.GREEN);
+            edgeColor.putMapValue("original", Color.BLACK);
             style.addVisualMappingFunction(edgeColor);
             DiscreteMapping<String, Paint> edgePaint = (DiscreteMapping)discreteVmf.createVisualMappingFunction(colName, String.class, BasicVisualLexicon.EDGE_PAINT);
             edgePaint.putMapValue("predicted", Color.GREEN);
             edgePaint.putMapValue("Predicted", Color.GREEN);
+            edgePaint.putMapValue("original", Color.BLACK);
             style.addVisualMappingFunction(edgePaint);
          }
 

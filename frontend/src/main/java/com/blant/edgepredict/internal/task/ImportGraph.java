@@ -14,7 +14,6 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyNetwork;
-import org.cytoscape.view.layout.CyLayoutAlgorithm;
 import org.cytoscape.view.layout.CyLayoutAlgorithmManager;
 import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.model.CyNetworkViewFactory;
@@ -23,8 +22,6 @@ import org.cytoscape.view.presentation.property.BasicVisualLexicon;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
-import org.cytoscape.work.TaskIterator;
-import org.cytoscape.work.TaskMonitor;
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
 
@@ -108,6 +105,7 @@ public class ImportGraph {
 
         NetworkBuilder builder = new NetworkBuilder(logWindow);
         CyNetwork network = builder.build(responseText, networkFactory);
+        builder.addOriginalEdges(BlantConfig.getInputFile(), network);
         double scoreMin = builder.getScoreMin();
         double scoreMax = builder.getScoreMax();
         int added = builder.getEdgesAdded();
@@ -118,16 +116,15 @@ public class ImportGraph {
         CyNetworkView view = networkViewFactory.createNetworkView(network);
         networkViewManager.addNetworkView(view);
 
-        CyLayoutAlgorithm layout = layoutManager.getDefaultLayout();
-        TaskIterator it = layout.createTaskIterator(view, layout.getDefaultLayoutContext(), CyLayoutAlgorithm.ALL_NODE_VIEWS, null);
-        while (it.hasNext()) {
-            it.next().run(new TaskMonitor() {
-                public void setTitle(String t) {}
-                public void setProgress(double p) {}
-                public void setStatusMessage(String m) {}
-                public void showMessage(TaskMonitor.Level l, String m) {}
-            });
-        }
+        layoutManager.getDefaultLayout().createTaskIterator(
+                view, layoutManager.getDefaultLayout().getDefaultLayoutContext(),
+                org.cytoscape.view.layout.CyLayoutAlgorithm.ALL_NODE_VIEWS, null
+        ).forEachRemaining(t -> {
+            try { t.run(new org.cytoscape.work.TaskMonitor() {
+                public void setTitle(String s) {} public void setProgress(double p) {}
+                public void setStatusMessage(String s) {} public void showMessage(org.cytoscape.work.TaskMonitor.Level l, String s) {}
+            }); } catch (Exception ignored) {}
+        });
 
         VisualUtil.applyStyles(view, vmm, vmfDiscrete, vmfPassthrough, vsFactory);
 
@@ -168,4 +165,5 @@ public class ImportGraph {
                 "Import complete: " + added + " edges added.\n"
                 + String.format("Score range: %.4f – %.4f", scoreMin, scoreMax));
     }
+
 }

@@ -51,11 +51,12 @@ public class SendToBlant {
     }
 
     public File selectFile() {
-        FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif)", new String[]{"txt", "csv", "sif"});
+        FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
         return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
     }
 
     public boolean send(File file) throws Exception {
+        BlantConfig.setInputFile(file);
         this.logWindow.setVisible(true);
         this.logWindow.appendLog("[INFO] File selected: " + file.getName());
         this.logWindow.appendLog("[INFO] Sending to BLANT...");

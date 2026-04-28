@@ -13,6 +13,7 @@ public class BlantConfig {
     private static final AtomicReference<String> JOB_ID = new AtomicReference<>(null);
     private static final AtomicInteger progress = new AtomicInteger(0);
     private static final AtomicBoolean isLoad = new AtomicBoolean(false);
+    private static final AtomicReference<java.io.File> INPUT_FILE = new AtomicReference<>(null);
 
     private BlantConfig() {}
 
@@ -24,4 +25,7 @@ public class BlantConfig {
 
     public static void setLoad(boolean load) { isLoad.set(load); }
     public static boolean getLoad() { return isLoad.get(); }
+
+    public static void setInputFile(java.io.File f) { INPUT_FILE.set(f); }
+    public static java.io.File getInputFile() { return INPUT_FILE.get(); }
 }

@@ -1,7 +1,10 @@
 package com.blant.edgepredict.internal.task;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import java.io.File;
+import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyNetwork;
@@ -91,4 +94,53 @@ public class NetworkBuilder {
     public double getScoreMin() { return scoreMin; }
     public double getScoreMax() { return scoreMax; }
     public int getEdgesAdded() { return edgesAdded; }
+
+    public void addOriginalEdges(File inputFile, CyNetwork network) {
+        if (inputFile == null || !inputFile.exists()) return;
+
+        String ext = inputFile.getName().contains(".")
+                ? inputFile.getName().substring(inputFile.getName().lastIndexOf('.') + 1).toLowerCase()
+                : "";
+        boolean isSif = ext.equals("sif");
+
+        Map<String, CyNode> nodeMap = new HashMap<>();
+        for (CyNode n : network.getNodeList()) {
+            String name = network.getRow(n).get("name", String.class);
+            if (name != null) nodeMap.put(name, n);
+        }
+
+        try {
+            List<String> lines = Files.readAllLines(inputFile.toPath());
+            int originalAdded = 0;
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+
+                String[] parts = line.split(line.contains("\t") ? "\t" : "\\s+");
+                if (parts.length < 2) continue;
+
+                String sourceName = parts[0];
+                String targetName = isSif && parts.length >= 3 ? parts[2] : parts[1];
+
+                CyNode source = nodeMap.computeIfAbsent(sourceName, name -> {
+                    CyNode n = network.addNode();
+                    network.getRow(n).set("name", name);
+                    return n;
+                });
+                CyNode target = nodeMap.computeIfAbsent(targetName, name -> {
+                    CyNode n = network.addNode();
+                    network.getRow(n).set("name", name);
+                    return n;
+                });
+
+                CyEdge edge = network.addEdge(source, target, false);
+                network.getRow(edge).set("name", sourceName + " (original) " + targetName);
+                network.getRow(edge).set("interaction", "original");
+                originalAdded++;
+            }
+            logWindow.appendLog("[INFO] Original edges loaded: " + originalAdded + " from " + inputFile.getName());
+        } catch (Exception e) {
+            logWindow.appendLog("[WARN] Could not load original edges: " + e.getMessage());
+        }
+    }
 }

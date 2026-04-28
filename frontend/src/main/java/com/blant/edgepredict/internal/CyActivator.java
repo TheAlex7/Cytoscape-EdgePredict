@@ -20,6 +20,7 @@ import org.osgi.framework.BundleContext;
 
 import com.blant.edgepredict.internal.ui.EdgeDetailPanel;
 import com.blant.edgepredict.internal.ui.MenuAction;
+import com.blant.edgepredict.internal.ui.NodeDetailPanel;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
 public class CyActivator extends AbstractCyActivator {
@@ -53,6 +54,11 @@ public class CyActivator extends AbstractCyActivator {
         EdgeDetailPanel.EdgeSelectionListener edgeListener =
                 new EdgeDetailPanel.EdgeSelectionListener(appManager);
         registerService(bc, edgeListener, RowsSetListener.class, new Properties());
+
+        // Register node selection listener for NodeDetailPanel popup
+        NodeDetailPanel.NodeSelectionListener nodeListener =
+                new NodeDetailPanel.NodeSelectionListener(appManager);
+        registerService(bc, nodeListener, RowsSetListener.class, new Properties());
 
         MenuAction menuAction = new MenuAction(
                 appManager, taskManager, writerManager, fileUtil,

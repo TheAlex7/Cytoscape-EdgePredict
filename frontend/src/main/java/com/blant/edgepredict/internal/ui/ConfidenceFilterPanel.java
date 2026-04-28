@@ -9,6 +9,7 @@ import java.awt.Graphics;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
@@ -29,8 +30,10 @@ public class ConfidenceFilterPanel extends JPanel {
     private JTextField thresholdInput;
     private JLabel sliderLabel;
     private JLabel sliderRangeLabel;
+    private JCheckBox showOriginalChk;
     private double scoreMin = 0.0;
     private double scoreMax = 1.0;
+    private boolean showOriginalEdges = false;
     private ChangeListener sliderChangeListener;
     private CyNetworkView activeView;
 
@@ -72,6 +75,12 @@ public class ConfidenceFilterPanel extends JPanel {
         thresholdRow.add(sliderLabel);
         thresholdRow.add(thresholdInput);
 
+        showOriginalChk = new JCheckBox("Show original edges", false);
+        showOriginalChk.addActionListener(e -> {
+            showOriginalEdges = showOriginalChk.isSelected();
+            applyThreshold();
+        });
+
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBorder(BorderFactory.createTitledBorder("Edge Confidence Filter"));
         add(thresholdRow);
@@ -79,6 +88,8 @@ public class ConfidenceFilterPanel extends JPanel {
         add(sliderRangeLabel);
         add(Box.createVerticalStrut(6));
         add(confidenceSlider);
+        add(Box.createVerticalStrut(4));
+        add(showOriginalChk);
         add(Box.createVerticalStrut(4));
         add(buildColorLegend());
     }
@@ -97,6 +108,8 @@ public class ConfidenceFilterPanel extends JPanel {
         scoreMin = min;
         scoreMax = max;
         activeView = view;
+        showOriginalEdges = false;
+        showOriginalChk.setSelected(false);
 
         confidenceSlider.removeChangeListener(sliderChangeListener);
         confidenceSlider.setEnabled(false);
@@ -146,21 +159,19 @@ public class ConfidenceFilterPanel extends JPanel {
             System.err.println("[ConfidenceFilterPanel] applyThreshold: view has no model");
             return;
         }
-        if (network.getDefaultEdgeTable().getColumn("confidence_score") == null) {
-            System.err.println("[ConfidenceFilterPanel] applyThreshold: 'confidence_score' column not found");
-            return;
-        }
-
         view.getEdgeViews().forEach(ev -> {
             CyRow row = network.getRow((CyIdentifiable) ev.getModel());
-            Double score = row.get("confidence_score", Double.class);
-            if (score != null) {
-                if (score >= threshold) {
+            String interaction = row.get("interaction", String.class);
+            if ("original".equals(interaction)) {
+                ev.setLockedValue(BasicVisualLexicon.EDGE_VISIBLE, showOriginalEdges);
+            } else {
+                Double score = row.get("confidence_score", Double.class);
+                if (score != null && score >= threshold) {
                     Color gradientColor = VisualUtil.scoreToColor(score, scoreMin, scoreMax);
                     ev.setLockedValue(BasicVisualLexicon.EDGE_VISIBLE, true);
                     ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
                     ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);
-                } else {
+                } else if (score != null) {
                     ev.setLockedValue(BasicVisualLexicon.EDGE_VISIBLE, false);
                 }
             }
