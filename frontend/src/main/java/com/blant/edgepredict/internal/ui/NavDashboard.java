@@ -1,12 +1,16 @@
 package com.blant.edgepredict.internal.ui;
 
-import com.blant.edgepredict.internal.task.PredictTaskManager;
 import java.awt.BorderLayout;
-import java.awt.CardLayout;
+import java.awt.Checkbox;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.util.List;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -17,6 +21,8 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
+
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.model.CyNetworkFactory;
@@ -30,6 +36,9 @@ import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
+import org.cytoscape.work.swing.DialogTaskManager;
+
+import com.blant.edgepredict.internal.task.PredictTaskManager;
 
 public class NavDashboard extends JFrame {
     private static NavDashboard instance;
@@ -47,19 +56,21 @@ public class NavDashboard extends JFrame {
     private final CyNetworkViewFactory networkViewFactory;
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
+    private final DialogTaskManager dialogTaskManager;
 
     private String sampleMethod;
-    private int precisionDigits;
-    private int kVal;
+    private double precisionDigits;
+    private List<String> kVal = new ArrayList<>();
     private String graphType = "Undirected";
     private boolean isSaved = true;
-    private final CardLayout cardLayout = new CardLayout();
-    private JPanel kValCards;
+    private boolean isOnline = true;
+    private List<Checkbox> kValCheckboxes = new ArrayList<>();
+    private final JPanel kValPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
     private final ConfidenceFilterPanel filterPanel;
+    private JSlider precisionSlider;
 
-    private NavDashboard(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager) {
+    private NavDashboard(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {
         super("BLANT Navigation Controller");
-        this.kValCards = new JPanel(this.cardLayout);
         this.taskManager = taskManager;
         this.applicationManager = applicationManager;
         this.fileUtil = fileUtil;
@@ -73,6 +84,7 @@ public class NavDashboard extends JFrame {
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
         this.layoutManager = layoutManager;
+        this.dialogTaskManager = dialogTaskManager;
 
         this.filterPanel = new ConfidenceFilterPanel(applicationManager);
 
@@ -91,8 +103,13 @@ public class NavDashboard extends JFrame {
 
         JButton sendBtn = new JButton("Send to BLANT");
         sendBtn.addActionListener(e -> {
+             for (Checkbox cb : kValCheckboxes) {
+                if (cb.getState()) {
+                    this.kVal.add(cb.getLabel());
+                }
+            }
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isOnline).run();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(NavDashboard.this, "Send to BLANT failed: " + ex.getMessage());
             }
@@ -108,7 +125,6 @@ public class NavDashboard extends JFrame {
         this.pack();
         this.setLocationRelativeTo((Component) null);
         this.setResizable(false);
-        this.setAlwaysOnTop(true);
         this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
         this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
@@ -159,18 +175,42 @@ public class NavDashboard extends JFrame {
         return panel;
     }
 
+
     private JPanel precisionDigitsPanel() {
-        JPanel panel = new JPanel(new GridLayout(3, 1));
-        JLabel label = new JLabel("Precision Digits");
-        Integer[] values = {1, 2, 3, 4, 5};
-        JComboBox<Integer> combo = new JComboBox<>(values);
-        combo.addActionListener(e -> this.precisionDigits = (Integer) combo.getSelectedItem());
-        JLabel warning = new JLabel("*Warning! Increasing precision digit will cause runtime increase in quadratic manner!");
-        panel.add(label);
-        panel.add(combo);
-        panel.add(warning);
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+
+        JLabel precisionLable = new JLabel("Precision Digits: 1.0");
+        JLabel warningLabel = new JLabel("<HTML><I>*Warning! Increasing precision digit will cause runtime increase in quadratic manner!</I></HTML>");
+        warningLabel.setForeground(Color.GRAY);
+
+        precisionSlider = new JSlider(10, 30, 10);
+        precisionSlider.setMajorTickSpacing(10);
+        precisionSlider.setMinorTickSpacing(1);
+        precisionSlider.setPaintTicks(true);
+        precisionSlider.setPaintLabels(true);
+        precisionSlider.setSnapToTicks(true);
+
+        Hashtable<Integer, JLabel> labelTable = new java.util.Hashtable<>();
+        for (int i = 10; i <= 50; i += 10) {
+            labelTable.put(i, new JLabel(String.valueOf(i / 10.0)));
+        }
+        precisionSlider.setLabelTable(labelTable);
+
+        precisionSlider.addChangeListener(e -> {
+            double actualValue = precisionSlider.getValue() / 10.0;
+            this.precisionDigits = actualValue;
+            precisionLable.setText(String.format("Precision Digits: %.1f", this.precisionDigits));
+        });       
+
+        panel.setBorder(BorderFactory.createTitledBorder("Precision Digits"));
+        panel.add(precisionLable);
+        panel.add(warningLabel);
+        panel.add(precisionSlider);
+        warningLabel.setPreferredSize(new Dimension(10, warningLabel.getPreferredSize().height * 2));
+
         return panel;
-    }
+    };
 
     private JPanel graphTypePanel() {
         JPanel panel = new JPanel(new GridLayout(2, 1));
@@ -178,8 +218,22 @@ public class NavDashboard extends JFrame {
         String[] types = {"Undirected", "Directed"};
         JComboBox<String> combo = new JComboBox<>(types);
         combo.addActionListener(e -> {
-            this.graphType = (String) combo.getSelectedItem();
-            this.cardLayout.show(this.kValCards, this.graphType);
+            this.graphType = (String) combo.getSelectedItem(); 
+            this.kValPanel.removeAll(); 
+            this.kValCheckboxes.clear();
+
+            String[] kValOptions;
+            if (this.graphType.equals("Undirected")) kValOptions = new String[]{"4", "5", "6", "7", "8"};
+            else kValOptions = new String[]{"3", "4", "5", "6"};
+
+            for (String kValues : kValOptions) {
+                Checkbox cb = new Checkbox(kValues);
+                this.kValCheckboxes.add(cb);
+                this.kValPanel.add(cb);
+            }
+
+            this.kValPanel.revalidate();
+            this.kValPanel.repaint();
         });
         panel.add(label);
         panel.add(combo);
@@ -188,26 +242,31 @@ public class NavDashboard extends JFrame {
 
     private JPanel kValPanel() {
         JPanel outerPanel = new JPanel(new GridLayout(0, 1));
-        JLabel label = new JLabel("K-values");
-        Integer[] undirectedVals = {4, 5, 6, 7, 8};
-        JComboBox<Integer> undirectedCombo = new JComboBox<>(undirectedVals);
-        undirectedCombo.addActionListener(e -> this.kVal = (Integer) undirectedCombo.getSelectedItem());
-        Integer[] directedVals = {3, 4, 5, 6};
-        JComboBox<Integer> directedCombo = new JComboBox<>(directedVals);
-        directedCombo.addActionListener(e -> this.kVal = (Integer) directedCombo.getSelectedItem());
-        this.kValCards.add(undirectedCombo, "Undirected");
-        this.kValCards.add(directedCombo, "Directed");
-        outerPanel.add(label);
-        outerPanel.add(this.kValCards);
+
+        String[] kValOptions = new String[]{"4", "5", "6", "7", "8"};
+        for (String label : kValOptions) {
+            Checkbox cb = new Checkbox(label);
+            this.kValCheckboxes.add(cb);
+            this.kValPanel.add(cb);
+        }
+
+        outerPanel.add(new JLabel("K-values"));
+        outerPanel.add(this.kValPanel);
+        outerPanel.add(new JLabel("*Warning! High K-values will cause runtime increase in quadratic manner!"));
         return outerPanel;
     }
 
     private JPanel savePanel() {
-        JPanel panel = new JPanel(new GridLayout(1, 0));
+        JPanel panel = new JPanel(new GridLayout(2, 0));
         JCheckBox chkSave = new JCheckBox("Save the input and the result");
         chkSave.setSelected(true);
         chkSave.addActionListener(e -> this.isSaved = chkSave.isSelected());
+        JCheckBox chkOnline = new JCheckBox("Use online BLANT service");
+        chkOnline.setSelected(true);
+        chkOnline.addActionListener(e -> this.isOnline = chkOnline.isSelected());
+        chkOnline.setPreferredSize(new Dimension(120, 25));
         panel.add(chkSave);
+        panel.add(chkOnline);
         return panel;
     }
 
@@ -219,9 +278,9 @@ public class NavDashboard extends JFrame {
         return instance;
     }
 
-    public static NavDashboard getInstance(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager) {
+    public static NavDashboard getInstance(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {
         if (instance == null || !instance.isDisplayable()) {
-            instance = new NavDashboard(taskManager, applicationManager, writerManager, fileUtil, vmm, vmfDiscrete, vmfPassthrough, vsFactory, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager);
+            instance = new NavDashboard(taskManager, applicationManager, writerManager, fileUtil, vmm, vmfDiscrete, vmfPassthrough, vsFactory, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, dialogTaskManager);
         }
         instance.setVisible(true);
         return instance;

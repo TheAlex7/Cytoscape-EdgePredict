@@ -1,9 +1,8 @@
 package com.blant.edgepredict.internal.task;
 
-import com.blant.edgepredict.internal.ui.BlantLogWindow;
-import com.blant.edgepredict.internal.util.BlantConfig;
-import com.blant.edgepredict.internal.util.BlantPoller;
 import java.lang.System.Logger.Level;
+import java.util.List;
+
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.util.swing.FileUtil;
@@ -13,11 +12,18 @@ import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
+import org.cytoscape.work.TaskIterator;
+import org.cytoscape.work.swing.DialogTaskManager;
+
+import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import com.blant.edgepredict.internal.util.BlantConfig;
+import com.blant.edgepredict.internal.util.BlantPoller;
+import com.blant.edgepredict.internal.util.DockerUtil;
 
 public class PredictTaskManager {
     private final String sampleMethod;
-    private final int precisionDigits;
-    private final int kVal;
+    private final double precisionDigits;
+    private final List<String> kVal;
     private final boolean isSaved;
     private final FileUtil fileUtil;
     private final CyNetworkFactory networkFactory;
@@ -29,8 +35,10 @@ public class PredictTaskManager {
     private final VisualMappingFunctionFactory vmfDiscrete;
     private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
+    private final DialogTaskManager dialogTaskManager;
+    private final boolean isOnline;
 
-    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, String sampleMethod, int precisionDigits, int kVal, boolean isSaved) {
+    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, boolean isOnline) {
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
@@ -45,10 +53,29 @@ public class PredictTaskManager {
         this.vmfDiscrete = vmfDiscrete;
         this.vmfPassthrough = vmfPassthrough;
         this.vsFactory = vsFactory;
+        this.dialogTaskManager = dialogTaskManager;
+        this.isOnline = isOnline;
     }
 
     public void run() {
+        if (!isOnline) {
+            dialogTaskManager.execute(new TaskIterator(new DockerUtil()), new org.cytoscape.work.TaskObserver() {
+                @Override
+                public void allFinished(org.cytoscape.work.FinishStatus finishStatus) {
+                    // Only show the dashboard if Docker setup succeeded.
+                    if (finishStatus.getType() == org.cytoscape.work.FinishStatus.Type.SUCCEEDED) task();
+                }
+                    @Override
+                    public void taskFinished(org.cytoscape.work.ObservableTask task) {}
+            });
+        } else {
+            task();
+        }
+    }
+
+    private void task() {
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
+        logWindow.setVisible(true);
 
         // File selection must happen on the EDT — returns immediately.
         SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
@@ -61,11 +88,14 @@ public class PredictTaskManager {
         // HTTP upload, polling, and import all run off the EDT so the UI stays responsive.
         new Thread(() -> {
             try {
-                boolean status = sendTask.send(file);
+                boolean status = sendTask.send(file, isOnline);
+                if (!status && BlantConfig.getLoad()) {
+                    status = sendTask.send(file, isOnline);
+                }
                 if (status) {
-                    BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), () -> {
+                    BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), isOnline, () -> {
                         try {
-                            new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
+                            new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile(isOnline);
                         } catch (Exception ex) {
                             System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
                         }

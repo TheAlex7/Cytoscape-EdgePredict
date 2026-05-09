@@ -1,0 +1,202 @@
+package com.blant.edgepredict.internal.util;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JOptionPane;
+
+import org.cytoscape.work.AbstractTask;
+import org.cytoscape.work.TaskIterator;
+import org.cytoscape.work.TaskMonitor;
+
+public class DockerUtil extends AbstractTask {
+    private Boolean isWin;
+
+    @Override
+    public void run(TaskMonitor monitor) throws Exception {
+        monitor.setTitle("Docker Environment Setup");
+
+        String os = System.getProperty("os.name").toLowerCase();
+        isWin = os.contains("win");
+
+        // 1. Check Docker Daemon and attempt to start if not running 
+        monitor.setStatusMessage("Checking whether Docker is installed...");
+        if (!isDockerInstalled()) {
+            JOptionPane.showMessageDialog(
+                    null,
+                    "Docker is not installed. Please install Docker and try again.",
+                    "Docker Not Running",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+            openInstallationPage();
+        }
+
+        monitor.setStatusMessage("Checking Docker daemon...");
+        if (!executeCommand("docker info")) {
+            monitor.setStatusMessage("Docker is not running. Attempting to start Docker...");
+            tryToStartDocker();
+
+            boolean isReady = false;
+            int retries = 0;
+            
+            while (!isReady && retries < 10) {
+                try {
+                    Boolean check = executeCommand("docker info");
+                    if (check) {
+                        isReady = true;
+                    } else {
+                        monitor.setStatusMessage("Waiting for Docker to start... (" + retries + "/10)");
+                        retries++;
+                        Thread.sleep(2000);
+                    }
+                } catch (Exception e) {
+                    retries++;
+                    try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                }
+            }
+            
+            if (!isReady) {
+                // Docker still not running after attempt to start, show error and open installation page
+                JOptionPane.showMessageDialog(
+                    null,
+                    "Docker failed to start. Please re-install Docker and try again.",
+                    "Docker Not Running",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+                openInstallationPage();
+            }
+        }
+
+        // 2. Download image if not exists
+        monitor.setStatusMessage("Checking for analysis image...");
+        monitor.setProgress(0.3);
+        boolean imageExists = executeCommand("docker image inspect flask-blant");
+        if (!imageExists) {
+            monitor.setStatusMessage("Downloading analysis engine. This may take a few minutes ...");
+
+            if (!executeCommand("docker pull thealex7/blant-predict:v1")) {
+                throw new Exception("Failed to download Docker image. Check your internet connection.");
+            }
+
+        } else {
+            monitor.setStatusMessage("Analysis image found, skipping build.");
+        }
+        monitor.setProgress(0.5);
+        Thread.sleep(2000);
+
+        // 4. Run container
+        monitor.setStatusMessage("Starting Flask server...");
+        monitor.setProgress(0.7);
+        if (!executeCommand("docker start blant-svc")) {
+            monitor.setStatusMessage("Container not found, creating new container...");
+            monitor.setProgress(0.8);
+            if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 flask-blant")) {
+                throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
+            }
+        }
+
+        monitor.setStatusMessage("Setup completed successfully!");
+        monitor.setProgress(1.0);
+    }
+
+    public void closeDocker() {
+        // Stop container if exists
+        String os = System.getProperty("os.name").toLowerCase();
+        isWin = os.contains("win");
+        executeCommand("docker stop blant-svc");
+    }
+
+    private boolean executeCommand(String command) {
+        List<String> fullCmd = new ArrayList<>();
+        if (isWin) {
+            fullCmd.addAll(List.of("cmd.exe", "/c", command));
+        } else {
+            fullCmd.addAll(List.of("sh", "-c", command));
+        }
+
+        try {
+            ProcessBuilder builder = new ProcessBuilder(fullCmd);
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[Docker Log]: " + line);
+                }
+            }
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                System.err.println("[ERROR] Command failed with exit code " + exitCode);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean isDockerInstalled() {
+        String os = System.getProperty("os.name").toLowerCase();
+        String checkCmd = os.contains("win") ? "where docker" : "which docker";
+
+        try {
+            Process process = Runtime.getRuntime().exec(checkCmd);
+            int exitCode = process.waitFor();
+            
+            if (exitCode == 0) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void tryToStartDocker() {
+        if (isWin) {
+            // Windows: Call Docker Desktop executable to start the daemon 
+            try {
+                Process p = Runtime.getRuntime().exec("where docker");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                String line = reader.readLine();
+
+                if (line != null && !line.isEmpty()) {
+                    java.io.File dockerExe = new java.io.File(line);
+                    java.io.File rootDir = dockerExe.getParentFile().getParentFile().getParentFile();
+                    java.io.File desktopExe = new java.io.File(rootDir, "Docker Desktop.exe");
+
+                    if (desktopExe.exists()) {
+                        executeCommand("start \"\" \"" + desktopExe.getAbsolutePath() + "\"");
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Dynamic path detection failed, trying default paths...");
+            }
+        } else {
+            // macOS: open, Linux: systemctl
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("mac")) {
+                executeCommand("open -a Docker");
+            } else {
+                executeCommand("sudo systemctl start docker");
+            }
+        }
+    }
+
+    private void openInstallationPage() {
+        try {
+            java.awt.Desktop.getDesktop().browse(new java.net.URI("https://www.docker.com/products/docker-desktop"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public TaskIterator createTaskIterator() {
+        return new TaskIterator(this);
+    }
+}

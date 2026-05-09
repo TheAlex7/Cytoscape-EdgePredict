@@ -10,11 +10,11 @@ public class CacheUtil {
     public static final String USER_HOME = System.getProperty("user.home");
     public static final File CONFIG_DIR = new File(USER_HOME, CONFIG_DIR_NAME);
 
-    static {
-        CONFIG_DIR.mkdirs();
+    public static void createConfigDir() {
+        if (!CONFIG_DIR.exists()) {
+            CONFIG_DIR.mkdirs();
+        }
     }
-
-    private CacheUtil() {}
 
     public static String saveInput(String jobId, String data) {
         File inputLog = new File(CONFIG_DIR, "input_log_" + jobId + ".txt");

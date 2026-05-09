@@ -1,8 +1,5 @@
 package com.blant.edgepredict.internal.task;
 
-import com.blant.edgepredict.internal.ui.BlantLogWindow;
-import com.blant.edgepredict.internal.util.BlantConfig;
-import com.blant.edgepredict.internal.util.CacheUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
@@ -12,16 +9,23 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import javax.swing.JOptionPane;
+
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.util.swing.FileChooserFilter;
 import org.cytoscape.util.swing.FileUtil;
 import org.cytoscape.view.model.CyNetworkViewFactory;
 import org.cytoscape.view.model.CyNetworkViewManager;
+
+import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import com.blant.edgepredict.internal.util.BlantConfig;
+import com.blant.edgepredict.internal.util.CacheUtil;
 
 public class SendToBlant {
     private static final Pattern JOB_ID_PATTERN = Pattern.compile("\"job_id\"\\s*:\\s*\"([^\"]+)\"");
@@ -33,11 +37,11 @@ public class SendToBlant {
     private final CyNetworkViewManager networkViewManager;
     private final BlantLogWindow logWindow;
     private final String sampleMethod;
-    private final int precisionDigits;
-    private final int kVal;
+    private final double precisionDigits;
+    private final List<String> kVal;
     private final boolean isSaved;
 
-    public SendToBlant(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, String sampleMethod, int precisionDigits, int kVal, boolean isSaved, BlantLogWindow logWindow) {
+    public SendToBlant(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, BlantLogWindow logWindow) {
         this.fileUtil = fileUtil;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
@@ -55,10 +59,11 @@ public class SendToBlant {
         return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
     }
 
-    public boolean send(File file) throws Exception {
+    public boolean send(File file, boolean isOnline) throws Exception {
         BlantConfig.setInputFile(file);
         this.logWindow.setVisible(true);
         this.logWindow.appendLog("[INFO] File selected: " + file.getName());
+        this.logWindow.appendLog("[INFO] BLANT server selected: " + (isOnline ? "Online" : "Local"));
         this.logWindow.appendLog("[INFO] Sending to BLANT...");
 
         try {
@@ -84,7 +89,11 @@ public class SendToBlant {
             baos.write(kPart.getBytes(StandardCharsets.UTF_8));
             baos.write((LINE_FEED + "--" + boundary + "--" + LINE_FEED).getBytes(StandardCharsets.UTF_8));
 
-            URL url = new URL(BlantConfig.SUBMIT_URL);
+            URL url = new URL(BlantConfig.getSubmitUrl(isOnline));
+            if (BlantConfig.getLoad()) {
+                url = new URL(BlantConfig.getSubmitUrl(isOnline) + "?force=1");
+                BlantConfig.setLoad(false);
+            }
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
@@ -123,22 +132,24 @@ public class SendToBlant {
                 this.logWindow.appendLog("[INFO] Job ID: " + jobId);
 
                 if (status == 200) {
-                    this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
+                this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
                     if (this.isSaved) {
                         this.logWindow.appendLog(CacheUtil.saveInput(jobId, new String(baos.toByteArray(), StandardCharsets.UTF_8)));
                     }
+                    return true;
                 } else {
-                    this.logWindow.appendLog("[INFO] Job already exists on server (HTTP 409). Using existing job ID.");
-                }
-                return true;
-            } else {
-                this.logWindow.appendLog("[ERROR] Unexpected HTTP status " + status + ": " + responseText);
-                return false;
-            }
+                    this.logWindow.appendLog("[Info] " + status + ": " + responseText);
+                    responseText = CacheUtil.getOutput(jobId);
+                    BlantConfig.setLoad(true);
 
+                    return !responseText.contains("ERROR");
+                }
+            }
         } catch (Exception ex) {
             this.logWindow.appendLog("[ERROR] Exception: " + ex.getMessage());
             throw ex;
         }
+
+        return false;
     }
 }

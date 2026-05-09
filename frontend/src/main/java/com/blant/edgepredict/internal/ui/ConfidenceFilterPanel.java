@@ -1,11 +1,11 @@
 package com.blant.edgepredict.internal.ui;
 
-import com.blant.edgepredict.internal.util.VisualUtil;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -15,12 +15,15 @@ import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.JTextField;
 import javax.swing.event.ChangeListener;
+
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.model.CyIdentifiable;
 import org.cytoscape.model.CyNetwork;
 import org.cytoscape.model.CyRow;
 import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.presentation.property.BasicVisualLexicon;
+
+import com.blant.edgepredict.internal.util.VisualUtil;
 
 public class ConfidenceFilterPanel extends JPanel {
     static final int SLIDER_SCALE = 1000;
@@ -193,7 +196,7 @@ public class ConfidenceFilterPanel extends JPanel {
                 }
             }
         };
-        gradientBar.setPreferredSize(new Dimension(200, 14));
+        gradientBar.setPreferredSize(new Dimension(300, 14));
         gradientBar.setOpaque(true);
 
         JLabel lowLabel = new JLabel("Low");

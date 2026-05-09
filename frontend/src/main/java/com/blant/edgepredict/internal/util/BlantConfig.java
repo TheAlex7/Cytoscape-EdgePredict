@@ -6,9 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class BlantConfig {
     public static final String BLANT_URL = "http://172.31.226.130:49161";
-    public static final String SUBMIT_URL = BLANT_URL + "/blant";
-    public static final String RESULTS_URL = BLANT_URL + "/results/";
-    public static final String PROGRESS_URL = BLANT_URL + "/progress/";
+    public static final String BLANT_URL_LOCAL = "http://localhost:49161";
 
     private static final AtomicReference<String> JOB_ID = new AtomicReference<>(null);
     private static final AtomicInteger progress = new AtomicInteger(0);
@@ -48,5 +46,19 @@ public class BlantConfig {
 
     public static java.io.File getInputFile() {
         return INPUT_FILE.get();
+    }
+    public static String getSubmitUrl(boolean isOnline) {
+        if (isOnline) return BLANT_URL + "/blant";
+        else return BLANT_URL_LOCAL + "/blant";
+    }
+
+    public static String getResultUrl(boolean isOnline) {
+        if (isOnline) return BLANT_URL + "/results/";
+        else return BLANT_URL_LOCAL + "/results/";
+    }
+
+    public static String getProgressUrl(boolean isOnline) {
+        if (isOnline) return BLANT_URL + "/progress/";
+        else return BLANT_URL_LOCAL + "/progress/";
     }
 }

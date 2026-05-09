@@ -28,7 +28,7 @@ public class BlantPoller {
         return instance;
     }
 
-    public void startPolling(final String jobId, final PollingCallback callback) {
+    public void startPolling(final String jobId, final boolean isOnline, final PollingCallback callback) {
         this.poller = new SwingWorker<Void, String>() {
             private int retryCount = 0;
 
@@ -36,7 +36,7 @@ public class BlantPoller {
             protected Void doInBackground() throws Exception {
                 while (!this.isCancelled()) {
                     try {
-                        URL url = new URL(BlantConfig.PROGRESS_URL + jobId);
+                        URL url = new URL(BlantConfig.getProgressUrl(isOnline) + jobId);
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("GET");
                         conn.setConnectTimeout(2000);

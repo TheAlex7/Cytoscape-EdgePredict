@@ -1,19 +1,18 @@
 package com.blant.edgepredict.internal.task;
 
-import com.blant.edgepredict.internal.ui.BlantLogWindow;
-import com.blant.edgepredict.internal.ui.NavDashboard;
-import com.blant.edgepredict.internal.util.BlantConfig;
-import com.blant.edgepredict.internal.util.CacheUtil;
-import com.blant.edgepredict.internal.util.VisualUtil;
 import java.awt.Color;
 import java.awt.Component;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+
 import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyNetwork;
+import org.cytoscape.model.CyNetworkFactory;
+import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.view.layout.CyLayoutAlgorithmManager;
 import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.model.CyNetworkViewFactory;
@@ -22,8 +21,13 @@ import org.cytoscape.view.presentation.property.BasicVisualLexicon;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
-import org.cytoscape.model.CyNetworkFactory;
-import org.cytoscape.model.CyNetworkManager;
+
+import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import com.blant.edgepredict.internal.ui.NavDashboard;
+import com.blant.edgepredict.internal.util.BlantConfig;
+import com.blant.edgepredict.internal.util.CacheUtil;
+import com.blant.edgepredict.internal.util.DockerUtil;
+import com.blant.edgepredict.internal.util.VisualUtil;
 
 public class ImportGraph {
     private final CyNetworkFactory networkFactory;
@@ -52,7 +56,7 @@ public class ImportGraph {
         this.logWindow = logWindow;
     }
 
-    public void importFile() throws Exception {
+    public void importFile(boolean isOnline) throws Exception {
         String jobId = BlantConfig.getJobId();
         if (jobId == null || jobId.isBlank()) {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog((Component) null, "No BLANT job ID found. Please run 'Send to BLANT' first."));
@@ -75,7 +79,7 @@ public class ImportGraph {
             }
         } else {
             this.logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
-            URL url = new URL(BlantConfig.RESULTS_URL + jobId);
+            URL url = new URL(BlantConfig.getResultUrl(isOnline) + jobId);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             int status = conn.getResponseCode();
@@ -98,6 +102,9 @@ public class ImportGraph {
                 });
             }
         }
+
+        DockerUtil dockerUtil = new DockerUtil();
+        dockerUtil.closeDocker();
     }
 
     private void processResult(String responseText, String jobId) throws Exception {

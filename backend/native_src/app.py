@@ -196,7 +196,7 @@ def startBlant():
 
     if isForced == "0" and os.path.isfile(stdout_path): # not a forced job and it already exists
         return jsonify({"error" : f"Job is already running or has already been computed.",
-                        "jobID" : job_id}), 409
+                        "job_id" : job_id}), 409
 
     file.save(upload_path)
 
