@@ -52,7 +52,6 @@ public class SendToBlant {
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
         this.isSaved = isSaved;
-        this.isMultithreaded = isMultithreaded;
     }
 
     public File selectFile() {

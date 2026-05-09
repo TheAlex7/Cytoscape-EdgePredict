@@ -36,11 +36,6 @@ public class CacheUtil {
             return "[WARN] Output file could not be saved: " + e.getMessage();
         }
     }
-<<<<<<< HEAD
-
-=======
-    
->>>>>>> main
     public static String getOutput(String jobId) {
         File outputLog = new File(CONFIG_DIR, "output_log_" + jobId + ".txt");
         try {

@@ -1,6 +1,5 @@
 package com.blant.edgepredict.internal.util;
 
-import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -9,7 +8,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import javax.swing.SwingWorker;
+
+import com.blant.edgepredict.internal.ui.BlantLogWindow;
 
 public class BlantPoller {
     private static final Pattern PROGRESS_PATTERN = Pattern.compile("\"progress\"\\s*:\\s*(\\d+)");
@@ -70,13 +72,6 @@ public class BlantPoller {
                         publish(String.format("[WARN] Connection failed (%d/%d): %s", retryCount, MAX_RETRIES, e.getMessage()));
 
                         Thread.sleep(POLL_INTERVAL_MS);
-                    } catch (Exception e) {
-                        retryCount++;
-                        publish(String.format("[WARN] Connection failed (%d/%d): %s", retryCount, MAX_RETRIES, e.getMessage()));
-                        if (retryCount >= MAX_RETRIES) {
-                            publish("[ERROR] Max retries reached. Aborting polling.");
-                            cancel(true);
-                        }
                     }
                 }
                 return null;
