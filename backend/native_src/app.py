@@ -42,20 +42,6 @@ def index():
 def fileTooLarge(error):
     return jsonify({"error": "File is too large. Max limit is 1MB."}), 413
 
-# # Used for testing only
-# @app.route("/clear-all")
-# def flushAll():
-#     for job_dir in os.listdir(JOBS_FOLDER):
-#         job_path = os.path.join(JOBS_FOLDER, job_dir)
-#         try:
-#             shutil.rmtree(job_path)
-#             jobs.clear()
-#         except Exception as e:
-#             print(f"Failed to delete {job_path}. Reason: {e}")
-#             return jsonify({"message": "job data not cleared",
-#                             "error" : e}), 500    
-#     return jsonify({"message": "successfully cleared all job data"}), 200
-
 @app.route("/clear/<job_id>")
 def flushJob(job_id):
     job_path = os.path.join(JOBS_FOLDER, job_id)
@@ -84,11 +70,13 @@ def getStderr(job_id):
                 if line is None:  # terminates
                     break
                 yield f"data: {line}\n\n"
-            except:
+            except queue.Empty:
                 continue
+            except:
+                return "data: BLANT encountered an Error."
         yield "data: [PREDICTION COMPLETE]\n\n"
 
-    return Response(generate(), mimetype="text/event-stream")
+    return Response(generate(), mimetype="text/event-stream", headers={'X-Accel-Buffering': 'no'})
 
 @app.route("/results/<job_id>")
 def getResult(job_id):
@@ -161,7 +149,7 @@ def startBlant():
         return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
     k = request.args.get("k", default="4", type=str)        # default k=4
-    sampling_method = request.args.get("method", default="MCMC").upper()
+    sampling_method = request.args.get("method", default="EBE!").upper()
     isForced = request.args.get("force", default="0", type=str) # boolean
     isMock = request.args.get("mock", default="0", type=str) # boolean
 
@@ -218,7 +206,7 @@ def startBlant():
 
     thread = threading.Thread(
         target=run_blant,
-        args=(jobs, job_id, upload_path, stdout_path, stderr_path, k, sampling_method, True)
+        args=(jobs, job_id, upload_path, stdout_path, stderr_path, k, sampling_method, isMock=="1")
     )
     thread.start() # separate thread to continue handling other calls
 

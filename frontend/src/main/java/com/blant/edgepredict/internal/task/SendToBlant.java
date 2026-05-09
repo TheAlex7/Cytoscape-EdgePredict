@@ -52,6 +52,7 @@ public class SendToBlant {
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
         this.isSaved = isSaved;
+        this.isMultithreaded = isMultithreaded;
     }
 
     public File selectFile() {
@@ -67,8 +68,11 @@ public class SendToBlant {
         this.logWindow.appendLog("[INFO] Sending to BLANT...");
 
         try {
+            // Generate multipart/form-data request body manually
             String boundary = UUID.randomUUID().toString();
             String LINE_FEED = "\r\n";
+
+            // Input File
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             String headers = "--" + boundary + LINE_FEED
                     + "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + LINE_FEED
@@ -99,6 +103,7 @@ public class SendToBlant {
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
+            // Write the multipart request body to the connection output stream
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(baos.toByteArray());
             } catch (Exception e) {

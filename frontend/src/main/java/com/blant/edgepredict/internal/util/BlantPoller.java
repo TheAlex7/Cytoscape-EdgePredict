@@ -64,6 +64,10 @@ public class BlantPoller {
                                 publish("[WARN] Could not parse progress from response: " + response);
                             }
                         }
+                        Thread.sleep(5000); // Poll every 5 second
+                    } catch (Exception e) {
+                        retryCount++;
+                        publish(String.format("[WARN] Connection failed (%d/%d): %s", retryCount, MAX_RETRIES, e.getMessage()));
 
                         Thread.sleep(POLL_INTERVAL_MS);
                     } catch (Exception e) {

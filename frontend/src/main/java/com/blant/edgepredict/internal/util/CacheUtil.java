@@ -6,11 +6,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 public class CacheUtil {
-    public static final String CONFIG_DIR_NAME = "CytoscapeConfiguration" + File.separator + "3" + File.separator + "apps" + File.separator + "BLANT";
-    public static final String USER_HOME = System.getProperty("user.home");
-    public static final File CONFIG_DIR = new File(USER_HOME, CONFIG_DIR_NAME);
 
-    public static void createConfigDir() {
+    public final static String CONFIG_DIR_NAME = "CytoscapeConfiguration" + File.separator + "3" + File.separator + "apps" + File.separator + "BLANT";
+    public final static String USER_HOME = System.getProperty("user.home");
+    public final static File CONFIG_DIR = new File(USER_HOME, CONFIG_DIR_NAME);
+
+    public CacheUtil() {
         if (!CONFIG_DIR.exists()) {
             CONFIG_DIR.mkdirs();
         }
@@ -35,7 +36,11 @@ public class CacheUtil {
             return "[WARN] Output file could not be saved: " + e.getMessage();
         }
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> main
     public static String getOutput(String jobId) {
         File outputLog = new File(CONFIG_DIR, "output_log_" + jobId + ".txt");
         try {

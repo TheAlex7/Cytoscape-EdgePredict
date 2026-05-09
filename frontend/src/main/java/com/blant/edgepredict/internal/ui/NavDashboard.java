@@ -39,6 +39,7 @@ import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.swing.DialogTaskManager;
 
 import com.blant.edgepredict.internal.task.PredictTaskManager;
+import com.blant.edgepredict.internal.util.VisualUtil;
 
 public class NavDashboard extends JFrame {
     private static NavDashboard instance;
