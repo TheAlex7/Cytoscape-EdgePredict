@@ -17,12 +17,14 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
+import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
 
 public class BlantLogWindow extends JFrame {
    private static BlantLogWindow instance;
    private final JTextArea logArea = new JTextArea();
    private final JButton closeBtn;
+   private final JButton abortBtn;
 
    private BlantLogWindow() {
       super("BLANT Log");
@@ -31,21 +33,38 @@ public class BlantLogWindow extends JFrame {
       this.logArea.setBackground(Color.BLACK);
       this.logArea.setForeground(Color.GREEN);
       this.logArea.setMargin(new Insets(5, 5, 5, 5));
+
       JScrollPane scrollPane = new JScrollPane(this.logArea);
       scrollPane.setPreferredSize(new Dimension(600, 400));
       this.addWindowListener(new WindowAdapter() {
          public void windowClosed(WindowEvent windowEvent) {
-            BlantPoller.getInstance().stopPolling();
-            BlantLogWindow.instance = null;
+            setVisible(false);
          }
       });
+
       this.closeBtn = new JButton("Close");
       this.closeBtn.addActionListener((e) -> {
-         BlantPoller.getInstance().stopPolling();
-         this.dispose();
+         if (BlantPoller.getInstance().isPolling()) {
+            BlantConfig.setAborted(true);
+            BlantPoller.getInstance().stopPolling();
+            BlantPoller.getInstance().abort();
+         }
+         setVisible(false);
       });
+
+      this.abortBtn = new JButton("Stop Task");
+      this.abortBtn.addActionListener((e) -> {
+         if (BlantPoller.getInstance().isPolling()) {
+            BlantConfig.setAborted(true);
+            BlantPoller.getInstance().stopPolling();
+            BlantPoller.getInstance().abort();
+         }
+      });
+
       JPanel bottomPanel = new JPanel(new FlowLayout(2));
+      bottomPanel.add(this.abortBtn);
       bottomPanel.add(this.closeBtn);
+
       this.setLayout(new BorderLayout());
       this.add(scrollPane, "Center");
       this.add(bottomPanel, "South");
@@ -67,5 +86,9 @@ public class BlantLogWindow extends JFrame {
          this.logArea.append(message + "\n");
          this.logArea.setCaretPosition(this.logArea.getDocument().getLength());
       });
+   }
+
+   public void setAbortBtnEnabled(boolean enabled) {
+      SwingUtilities.invokeLater(() -> this.abortBtn.setEnabled(enabled));
    }
 }

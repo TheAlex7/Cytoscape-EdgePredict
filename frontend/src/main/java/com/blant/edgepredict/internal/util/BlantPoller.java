@@ -1,14 +1,18 @@
 package com.blant.edgepredict.internal.util;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
@@ -30,7 +34,7 @@ public class BlantPoller {
         return instance;
     }
 
-    public void startPolling(final String jobId, final boolean isOnline, final PollingCallback callback) {
+    public void startPolling(final String jobId, final PollingCallback callback) {
         this.poller = new SwingWorker<Void, String>() {
             private int retryCount = 0;
 
@@ -38,7 +42,7 @@ public class BlantPoller {
             protected Void doInBackground() throws Exception {
                 while (!this.isCancelled()) {
                     try {
-                        URL url = new URL(BlantConfig.getProgressUrl(isOnline) + jobId);
+                        URL url = URI.create(BlantConfig.getProgressUrl() + jobId).toURL();
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("GET");
                         conn.setConnectTimeout(2000);
@@ -71,6 +75,10 @@ public class BlantPoller {
                         retryCount++;
                         publish(String.format("[WARN] Connection failed (%d/%d): %s", retryCount, MAX_RETRIES, e.getMessage()));
 
+                        if (retryCount >= MAX_RETRIES) {
+                            publish("[ERROR] Max retries reached. Stopping poller.");
+                            return null;
+                        }
                         Thread.sleep(POLL_INTERVAL_MS);
                     }
                 }
@@ -95,6 +103,33 @@ public class BlantPoller {
     public void stopPolling() {
         if (this.poller != null && !this.poller.isDone()) {
             this.poller.cancel(true);
+        }
+    }
+
+    public boolean isPolling() {
+        return this.poller != null && !this.poller.isDone();
+    }
+
+    public void abort() {
+        if (this.isPolling()) {
+            BlantLogWindow logWindow = BlantLogWindow.getInstance();
+            logWindow.appendLog("[INFO] Aborting BLANT task...");
+            try {
+                URL url = URI.create(BlantConfig.getAbortUrl()).toURL();
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+
+                int status = conn.getResponseCode();
+                if (status == 200) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, "Aborted: " + BlantConfig.getJobId()));
+                    this.stopPolling();
+                } else {
+                    logWindow.appendLog("[ERROR] Failed to abort BLANT task. Server returned: " + status);
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, "Failed to abort. Server returned: " + status));
+                }
+            } catch (IOException ex) {
+                logWindow.appendLog("[ERROR] Failed to abort BLANT task: " + ex.getMessage());
+            }
         }
     }
 }

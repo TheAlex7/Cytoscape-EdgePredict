@@ -5,6 +5,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class BlantConfig {
+    public static boolean isOnline = true;
+    private static final AtomicBoolean isAborted = new AtomicBoolean(false);
+
     public static final String BLANT_URL = "http://172.31.226.130:49161";
     public static final String BLANT_URL_LOCAL = "http://localhost:49161";
 
@@ -47,18 +50,40 @@ public class BlantConfig {
     public static java.io.File getInputFile() {
         return INPUT_FILE.get();
     }
-    public static String getSubmitUrl(boolean isOnline) {
+
+    public static void setOnline(boolean online) {
+        isOnline = online;
+    }
+
+    public static boolean getOnline() {
+        return isOnline;
+    }
+
+    public static void setAborted(boolean aborted) {
+        isAborted.set(aborted);
+    }
+
+    public static boolean getAborted() {
+        return isAborted.get();
+    }
+
+    public static String getSubmitUrl() {
         if (isOnline) return BLANT_URL + "/blant";
         else return BLANT_URL_LOCAL + "/blant";
     }
 
-    public static String getResultUrl(boolean isOnline) {
+    public static String getResultUrl() {
         if (isOnline) return BLANT_URL + "/results/";
         else return BLANT_URL_LOCAL + "/results/";
     }
 
-    public static String getProgressUrl(boolean isOnline) {
+    public static String getProgressUrl() {
         if (isOnline) return BLANT_URL + "/progress/";
         else return BLANT_URL_LOCAL + "/progress/";
+    }
+
+    public static String getAbortUrl() {
+        if (isOnline) return BLANT_URL + "/abort/" + BlantConfig.getJobId();
+        else return BLANT_URL_LOCAL + "/abort/" + BlantConfig.getJobId();
     }
 }

@@ -39,7 +39,7 @@ import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.swing.DialogTaskManager;
 
 import com.blant.edgepredict.internal.task.PredictTaskManager;
-import com.blant.edgepredict.internal.util.VisualUtil;
+import com.blant.edgepredict.internal.util.BlantConfig;
 
 public class NavDashboard extends JFrame {
     private static NavDashboard instance;
@@ -64,7 +64,6 @@ public class NavDashboard extends JFrame {
     private List<String> kVal = new ArrayList<>();
     private String graphType = "Undirected";
     private boolean isSaved = true;
-    private boolean isOnline = true;
     private List<Checkbox> kValCheckboxes = new ArrayList<>();
     private final JPanel kValPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
     private final ConfidenceFilterPanel filterPanel;
@@ -104,13 +103,14 @@ public class NavDashboard extends JFrame {
 
         JButton sendBtn = new JButton("Send to BLANT");
         sendBtn.addActionListener(e -> {
+            this.kVal.clear();
              for (Checkbox cb : kValCheckboxes) {
                 if (cb.getState()) {
                     this.kVal.add(cb.getLabel());
                 }
             }
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isOnline).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).run();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(NavDashboard.this, "Send to BLANT failed: " + ex.getMessage());
             }
@@ -264,7 +264,7 @@ public class NavDashboard extends JFrame {
         chkSave.addActionListener(e -> this.isSaved = chkSave.isSelected());
         JCheckBox chkOnline = new JCheckBox("Use online BLANT service");
         chkOnline.setSelected(true);
-        chkOnline.addActionListener(e -> this.isOnline = chkOnline.isSelected());
+        chkOnline.addActionListener(e -> BlantConfig.setOnline(chkOnline.isSelected()));
         chkOnline.setPreferredSize(new Dimension(120, 25));
         panel.add(chkSave);
         panel.add(chkOnline);

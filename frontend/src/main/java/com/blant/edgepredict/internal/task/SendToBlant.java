@@ -59,11 +59,16 @@ public class SendToBlant {
         return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
     }
 
-    public boolean send(File file, boolean isOnline) throws Exception {
+    public boolean send(File file) throws Exception {
         BlantConfig.setInputFile(file);
         this.logWindow.setVisible(true);
+
+        this.logWindow.appendLog("========================================");
+        this.logWindow.appendLog("Session starts: " + new java.util.Date().toString());
+        this.logWindow.appendLog("========================================");
+
         this.logWindow.appendLog("[INFO] File selected: " + file.getName());
-        this.logWindow.appendLog("[INFO] BLANT server selected: " + (isOnline ? "Online" : "Local"));
+        this.logWindow.appendLog("[INFO] BLANT server selected: " + (BlantConfig.isOnline ? "Online" : "Local"));
         this.logWindow.appendLog("[INFO] Sending to BLANT...");
 
         try {
@@ -78,31 +83,21 @@ public class SendToBlant {
                     + "Content-Type: application/octet-stream" + LINE_FEED + LINE_FEED;
             baos.write(headers.getBytes(StandardCharsets.UTF_8));
             baos.write(Files.readAllBytes(file.toPath()));
-            String sampleMethodPart = LINE_FEED + "--" + boundary + LINE_FEED
-                    + "Content-Disposition: form-data; name=\"sample_method\"" + LINE_FEED + LINE_FEED
-                    + this.sampleMethod + LINE_FEED;
-            baos.write(sampleMethodPart.getBytes(StandardCharsets.UTF_8));
-            String precisionDigitsPart = "--" + boundary + LINE_FEED
-                    + "Content-Disposition: form-data; name=\"precision_digits\"" + LINE_FEED + LINE_FEED
-                    + this.precisionDigits + LINE_FEED;
-            baos.write(precisionDigitsPart.getBytes(StandardCharsets.UTF_8));
-            String kPart = "--" + boundary + LINE_FEED
-                    + "Content-Disposition: form-data; name=\"k\"" + LINE_FEED + LINE_FEED
-                    + this.kVal + LINE_FEED;
-            baos.write(kPart.getBytes(StandardCharsets.UTF_8));
             baos.write((LINE_FEED + "--" + boundary + "--" + LINE_FEED).getBytes(StandardCharsets.UTF_8));
-
-            URL url = new URL(BlantConfig.getSubmitUrl(isOnline));
+            String kParam = this.kVal.isEmpty() ? "4" : this.kVal.get(0);
+            String method = this.sampleMethod == null ? "MCMC" : this.sampleMethod.replaceAll("\\s*\\(.*\\)$", "").trim();
+            
+            String queryParams = "?k=" + kParam + "&method=" + method + "&precision=" + this.precisionDigits;
             if (BlantConfig.getLoad()) {
-                url = new URL(BlantConfig.getSubmitUrl(isOnline) + "?force=1");
+                queryParams += "&force=1";
                 BlantConfig.setLoad(false);
             }
+            URL url = new URL(BlantConfig.getSubmitUrl() + queryParams);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
-            // Write the multipart request body to the connection output stream
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(baos.toByteArray());
             } catch (Exception e) {
@@ -111,7 +106,6 @@ public class SendToBlant {
             }
 
             int status = conn.getResponseCode();
-            this.logWindow.appendLog("[INFO] Server responded with HTTP " + status);
 
             InputStream responseStream = (status >= 200 && status < 300)
                     ? conn.getInputStream()
@@ -123,7 +117,6 @@ public class SendToBlant {
             }
 
             String responseText = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
-            this.logWindow.appendLog("[DEBUG] Server response: " + responseText);
 
             if (status == 200 || status == 409) {
                 Matcher m = JOB_ID_PATTERN.matcher(responseText);

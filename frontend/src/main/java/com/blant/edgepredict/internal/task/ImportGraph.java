@@ -26,7 +26,6 @@ import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.ui.NavDashboard;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.CacheUtil;
-import com.blant.edgepredict.internal.util.DockerUtil;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
 public class ImportGraph {
@@ -56,12 +55,9 @@ public class ImportGraph {
         this.logWindow = logWindow;
     }
 
-    public void importFile(boolean isOnline) throws Exception {
+    public void importFile() throws Exception {
         String jobId = BlantConfig.getJobId();
-        if (jobId == null || jobId.isBlank()) {
-            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog((Component) null, "No BLANT job ID found. Please run 'Send to BLANT' first."));
-            return;
-        }
+        if (jobId == null || jobId.isBlank()) return;
 
         if (BlantConfig.getLoad()) {
             String responseText = CacheUtil.getOutput(jobId);
@@ -79,10 +75,11 @@ public class ImportGraph {
             }
         } else {
             this.logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
-            URL url = new URL(BlantConfig.getResultUrl(isOnline) + jobId);
+            URL url = new URL(BlantConfig.getResultUrl() + jobId);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             int status = conn.getResponseCode();
+            this.logWindow.appendLog("[INFO] Server responded with HTTP " + status);
             if (status != 200) {
                 String error = conn.getErrorStream() != null
                         ? new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)
@@ -102,9 +99,6 @@ public class ImportGraph {
                 });
             }
         }
-
-        DockerUtil dockerUtil = new DockerUtil();
-        dockerUtil.closeDocker();
     }
 
     private void processResult(String responseText, String jobId) throws Exception {

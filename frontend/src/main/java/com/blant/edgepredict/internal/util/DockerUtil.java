@@ -2,6 +2,8 @@ package com.blant.edgepredict.internal.util;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -79,12 +81,11 @@ public class DockerUtil extends AbstractTask {
             if (!executeCommand("docker pull thealex7/blant-predict:v1")) {
                 throw new Exception("Failed to download Docker image. Check your internet connection.");
             }
-
+            executeCommand("docker tag thealex7/blant-predict:v1 flask-blant");
         } else {
             monitor.setStatusMessage("Analysis image found, skipping build.");
         }
         monitor.setProgress(0.5);
-        Thread.sleep(2000);
 
         // 4. Run container
         monitor.setStatusMessage("Starting Flask server...");
@@ -95,6 +96,30 @@ public class DockerUtil extends AbstractTask {
             if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 flask-blant")) {
                 throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
             }
+        }
+
+        // Wait for Flask to be ready before returning
+        monitor.setStatusMessage("Waiting for server to be ready...");
+        boolean serverReady = false;
+        int healthRetries = 0;
+        while (!serverReady && healthRetries < 30) {
+            try {
+                Thread.sleep(1000);
+                HttpURLConnection healthConn = (HttpURLConnection) URI.create(BlantConfig.BLANT_URL_LOCAL).toURL().openConnection();
+                healthConn.setConnectTimeout(1000);
+                healthConn.setReadTimeout(1000);
+                healthConn.setRequestMethod("GET");
+                if (healthConn.getResponseCode() == 200) {
+                    serverReady = true;
+                }
+                healthConn.disconnect();
+            } catch (Exception e) {
+                healthRetries++;
+                monitor.setStatusMessage("Waiting for server (" + healthRetries + "/30)...");
+            }
+        }
+        if (!serverReady) {
+            throw new Exception("Server did not start in time. Please try again.");
         }
 
         monitor.setStatusMessage("Setup completed successfully!");

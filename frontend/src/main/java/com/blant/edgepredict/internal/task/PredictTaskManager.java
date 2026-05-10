@@ -36,9 +36,8 @@ public class PredictTaskManager {
     private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
     private final DialogTaskManager dialogTaskManager;
-    private final boolean isOnline;
 
-    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, boolean isOnline) {
+    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved) {
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
@@ -54,15 +53,13 @@ public class PredictTaskManager {
         this.vmfPassthrough = vmfPassthrough;
         this.vsFactory = vsFactory;
         this.dialogTaskManager = dialogTaskManager;
-        this.isOnline = isOnline;
     }
 
-    public void run() {
-        if (!isOnline) {
+public void run() {
+        if (!BlantConfig.getOnline()) {
             dialogTaskManager.execute(new TaskIterator(new DockerUtil()), new org.cytoscape.work.TaskObserver() {
                 @Override
                 public void allFinished(org.cytoscape.work.FinishStatus finishStatus) {
-                    // Only show the dashboard if Docker setup succeeded.
                     if (finishStatus.getType() == org.cytoscape.work.FinishStatus.Type.SUCCEEDED) task();
                 }
                     @Override
@@ -77,33 +74,52 @@ public class PredictTaskManager {
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
         logWindow.setVisible(true);
 
-        // File selection must happen on the EDT — returns immediately.
         SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
         java.io.File file = sendTask.selectFile();
+
         if (file == null) {
             logWindow.appendLog("[INFO] Send to BLANT cancelled by user.");
             return;
         }
 
-        // HTTP upload, polling, and import all run off the EDT so the UI stays responsive.
         new Thread(() -> {
             try {
-                boolean status = sendTask.send(file, isOnline);
+                boolean status = sendTask.send(file);
                 if (!status && BlantConfig.getLoad()) {
-                    status = sendTask.send(file, isOnline);
+                    status = sendTask.send(file);
                 }
+                
                 if (status) {
-                    BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), isOnline, () -> {
-                        try {
-                            new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile(isOnline);
-                        } catch (Exception ex) {
-                            System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
+                    BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), () -> {
+                        if (!BlantConfig.getAborted()) {
+                            try {
+                                new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
+                            } catch (Exception ex) {
+                                System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
+                            } finally {
+                                cleanupResources();
+                            }
+                        } else {
+                            cleanupResources();
                         }
                     });
+                } else {
+                    cleanupResources();
                 }
             } catch (Exception e) {
                 logWindow.appendLog("[ERROR] Task failed: " + e.getMessage());
+                cleanupResources();
             }
-        }, "blant-send").start();
+        }).start();
+    }
+
+    private void cleanupResources() {
+        if (!BlantConfig.getOnline()) {
+            new DockerUtil().closeDocker();
+            BlantPoller.getInstance().stopPolling();
+            BlantConfig.setJobId(null);
+            BlantConfig.setLoad(false);
+            BlantConfig.setProgress(0);
+        }
     }
 }

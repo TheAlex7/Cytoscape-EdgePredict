@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, url_for, send_file, Response
+from flask import Flask, request, jsonify, send_file, Response
 import io
 import threading
 import queue
@@ -74,7 +74,10 @@ def getStderr(job_id):
                 continue
             except:
                 return "data: BLANT encountered an Error."
-        yield "data: [PREDICTION COMPLETE]\n\n"
+        if process_data.get("aborted"):
+            yield "data: [ABORTED]\n\n"
+        else:
+            yield "data: [PREDICTION COMPLETE]\n\n"
 
     return Response(generate(), mimetype="text/event-stream", headers={'X-Accel-Buffering': 'no'})
 
@@ -211,6 +214,28 @@ def startBlant():
     thread.start() # separate thread to continue handling other calls
 
     return jsonify({"job_id": job_id})
+
+@app.route("/abort/<job_id>", methods=["POST"])
+def abortJob(job_id):
+    if job_id not in jobs:
+        return jsonify({"error": "Running job not found."}), 404
+
+    job_data = jobs[job_id]
+
+    if job_data["finished"]:
+        return jsonify({"error": "Job already finished."}), 400
+
+    job_data["aborted"] = True
+
+    process = job_data.get("process")
+    if process is not None and process.poll() is None:
+        process.terminate()
+
+    job_data["finished"] = True
+    job_data["stderr_queue"].put(None)
+    update_job_data(job_data, job_data["job_data_path"])
+
+    return jsonify({"message": "Job aborted."}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
