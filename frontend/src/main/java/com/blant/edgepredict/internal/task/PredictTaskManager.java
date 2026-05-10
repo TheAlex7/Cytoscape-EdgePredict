@@ -1,6 +1,7 @@
 package com.blant.edgepredict.internal.task;
 
-import javax.swing.JOptionPane;
+import java.lang.System.Logger.Level;
+import java.util.List;
 
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
@@ -11,21 +12,19 @@ import org.cytoscape.view.model.CyNetworkViewManager;
 import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
+import org.cytoscape.work.TaskIterator;
+import org.cytoscape.work.swing.DialogTaskManager;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
+import com.blant.edgepredict.internal.util.DockerUtil;
 
 public class PredictTaskManager {
-    
-    // User Inputs
-    private final  String sampleMethod;
-    private final  int precisionDigits;
-    private final  int kVal;
-    private final  boolean isSaved;
-    private final  boolean isMultithreaded;
-
-    // Cytoscape Services
+    private final String sampleMethod;
+    private final double precisionDigits;
+    private final List<String> kVal;
+    private final boolean isSaved;
     private final FileUtil fileUtil;
     private final CyNetworkFactory networkFactory;
     private final CyNetworkManager networkManager;
@@ -36,28 +35,13 @@ public class PredictTaskManager {
     private final VisualMappingFunctionFactory vmfDiscrete;
     private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
+    private final DialogTaskManager dialogTaskManager;
 
-    public PredictTaskManager(FileUtil fileUtil,
-                       CyNetworkFactory networkFactory,
-                       CyNetworkManager networkManager,
-                       CyNetworkViewFactory networkViewFactory,
-                       CyNetworkViewManager networkViewManager,
-                       CyLayoutAlgorithmManager layoutManager,
-                       VisualMappingManager vmm,
-                       VisualMappingFunctionFactory vmfDiscrete,
-                       VisualMappingFunctionFactory vmfPassthrough,
-                       VisualStyleFactory vsFactory,
-                       String sampleMethod,
-                       int precisionDigits,
-                       int kVal,
-                       boolean isSaved,
-                       boolean isMultithreaded) {
+    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved) {
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
         this.isSaved = isSaved;
-        this.isMultithreaded = isMultithreaded;
-        
         this.fileUtil = fileUtil;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
@@ -68,32 +52,74 @@ public class PredictTaskManager {
         this.vmfDiscrete = vmfDiscrete;
         this.vmfPassthrough = vmfPassthrough;
         this.vsFactory = vsFactory;
+        this.dialogTaskManager = dialogTaskManager;
     }
 
-    public void run() {
-        BlantLogWindow logWindow = BlantLogWindow.getInstance();
-        BlantPoller poller = BlantPoller.getInstance();
-        try {
-            // Send to BLANT
-            SendToBlant sendTask = new SendToBlant(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, 
-                this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isMultithreaded, logWindow);
-            boolean status = sendTask.send();
-
-            if (status) {
-                poller.startPolling(BlantConfig.getJobId(), () -> {
-                    try {
-                        ImportGraph importTask = new ImportGraph(networkFactory, networkManager, networkViewFactory, networkViewManager,
-                            layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, this.isSaved, logWindow);
-                        importTask.importFile();
-                    } catch (Exception ex) {
-                        System.getLogger(PredictTaskManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                    }
+public void run() {
+        if (!BlantConfig.getOnline()) {
+            dialogTaskManager.execute(new TaskIterator(new DockerUtil()), new org.cytoscape.work.TaskObserver() {
+                @Override
+                public void allFinished(org.cytoscape.work.FinishStatus finishStatus) {
+                    if (finishStatus.getType() == org.cytoscape.work.FinishStatus.Type.SUCCEEDED) task();
+                }
+                    @Override
+                    public void taskFinished(org.cytoscape.work.ObservableTask task) {}
             });
-            } else {
-                JOptionPane.showMessageDialog(null, "Task cancelled due to the user input.");
-            }
-
-        } catch (Exception e) {}
+        } else {
+            task();
+        }
     }
-    
+
+    private void task() {
+        BlantLogWindow logWindow = BlantLogWindow.getInstance();
+        logWindow.setVisible(true);
+
+        SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
+        java.io.File file = sendTask.selectFile();
+
+        if (file == null) {
+            logWindow.appendLog("[INFO] Send to BLANT cancelled by user.");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                boolean status = sendTask.send(file);
+                if (!status && BlantConfig.getLoad()) {
+                    status = sendTask.send(file);
+                }
+                
+                if (status) {
+                    BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), () -> {
+                        if (!BlantConfig.getAborted()) {
+                            try {
+                                new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
+                            } catch (Exception ex) {
+                                System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
+                            } finally {
+                                cleanupResources();
+                            }
+                        } else {
+                            cleanupResources();
+                        }
+                    });
+                } else {
+                    cleanupResources();
+                }
+            } catch (Exception e) {
+                logWindow.appendLog("[ERROR] Task failed: " + e.getMessage());
+                cleanupResources();
+            }
+        }).start();
+    }
+
+    private void cleanupResources() {
+        if (!BlantConfig.getOnline()) {
+            new DockerUtil().closeDocker();
+            BlantPoller.getInstance().stopPolling();
+            BlantConfig.setJobId(null);
+            BlantConfig.setLoad(false);
+            BlantConfig.setProgress(0);
+        }
+    }
 }

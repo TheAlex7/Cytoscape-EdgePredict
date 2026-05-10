@@ -26,7 +26,7 @@ EXPOSE 5000
 
 # production
 # CMD gunicorn --workers $WORKERS --threads $THREADS server:app -b 0.0.0.0:5000
-CMD ["sh", "-c", "exec gunicorn --workers=$WORKERS --threads=$THREADS server:app -b 0.0.0.0:5000"]
+# CMD ["sh", "-c", "exec gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000"]
 
 # development
-# CMD ["python", "server.py"]
+CMD ["python", "server.py"]

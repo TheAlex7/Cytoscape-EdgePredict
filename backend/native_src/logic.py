@@ -1,10 +1,13 @@
-import subprocess, threading
+import subprocess, threading, os
 import hashlib
 import json
 import os
 
 def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampling_method = "EBE!", MOCK=False):
     process_data = load_job_data(job_data_path)
+
+    if process_data.get("aborted"):
+        return
 
     process_data["finished"] = False
     update_job_data(process_data, process_data["job_data_path"])
@@ -22,6 +25,7 @@ def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampli
         text=True,
         bufsize=1
     )
+    process_data["process"] = process
 
     def stream_stderr():
         with open(stderr_path, "w") as f:
@@ -42,7 +46,6 @@ def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampli
         if empty:
             os.remove(stdout_path)
         
-
     stderr_thread = threading.Thread(target=stream_stderr)
     stdout_thread = threading.Thread(target=capture_stdout)
 
@@ -85,6 +88,8 @@ def update_job_data(data, filepath):
     updated_data = data.copy()
     if "stderr_queue" in updated_data:
         del updated_data["stderr_queue"] # not serializable
+    if "process" in updated_data:
+        del updated_data["process"]
     with open(filepath, "w") as file:
         json.dump(updated_data, file)
 

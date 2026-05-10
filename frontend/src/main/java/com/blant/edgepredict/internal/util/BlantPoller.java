@@ -1,16 +1,26 @@
 package com.blant.edgepredict.internal.util;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 
 public class BlantPoller {
+    private static final Pattern PROGRESS_PATTERN = Pattern.compile("\"progress\"\\s*:\\s*(\\d+)");
+    private static final int MAX_RETRIES = 5;
+    private static final long POLL_INTERVAL_MS = 5000L;
 
     private static BlantPoller instance;
     private SwingWorker<Void, String> poller;
@@ -24,16 +34,15 @@ public class BlantPoller {
         return instance;
     }
 
-    public void startPolling(String jobId, PollingCallback callback) {
-        poller = new SwingWorker<Void, String>() {
-            private final int MAX_RETRIES = 5;
+    public void startPolling(final String jobId, final PollingCallback callback) {
+        this.poller = new SwingWorker<Void, String>() {
             private int retryCount = 0;
 
             @Override
             protected Void doInBackground() throws Exception {
-                while (!isCancelled()) {
+                while (!this.isCancelled()) {
                     try {
-                        URL url = new URL(BlantConfig.PROGRESS_URL + jobId);
+                        URL url = URI.create(BlantConfig.getProgressUrl() + jobId).toURL();
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("GET");
                         conn.setConnectTimeout(2000);
@@ -41,35 +50,24 @@ public class BlantPoller {
 
                         if (conn.getResponseCode() == 200) {
                             retryCount = 0;
-                            BufferedReader reader = new BufferedReader(
-                                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-
+                            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
                             StringBuilder sb = new StringBuilder();
                             String line;
-
                             while ((line = reader.readLine()) != null) {
                                 sb.append(line);
                             }
-
                             String response = sb.toString();
-
                             publish("[PING] " + response);
 
-                            // ISSUE: This parsing is very brittle and assumes a specific format. 
-                            // A more robust solution would be to use a JSON parsing library like Jackson or Gson,
-                            // but that would add an additional dependency to the project. 
-                            // For now, we will keep it simple and just document the expected format in the server
-                            // response. The expected format is: {"progress": <int>, "status": <string>}
-                            String progressStr = response.split("\"progress\"\\s*:\\s* ")[1]
-                                                        .split("[,}]")[0]
-                                                        .trim();
-
-                            int progress = Integer.parseInt(progressStr);
-                            
-                            // Stop polling if progress is 1
-                            if (progress == 1) {
-                                BlantConfig.setProgress(progress);
-                                return null;
+                            Matcher m = PROGRESS_PATTERN.matcher(response);
+                            if (m.find()) {
+                                int progress = Integer.parseInt(m.group(1));
+                                if (progress == 1) {
+                                    BlantConfig.setProgress(progress);
+                                    return null;
+                                }
+                            } else {
+                                publish("[WARN] Could not parse progress from response: " + response);
                             }
                         }
                         Thread.sleep(5000); // Poll every 5 second
@@ -78,16 +76,17 @@ public class BlantPoller {
                         publish(String.format("[WARN] Connection failed (%d/%d): %s", retryCount, MAX_RETRIES, e.getMessage()));
 
                         if (retryCount >= MAX_RETRIES) {
-                            publish("[ERROR] Max retries reached. Aborting polling.");
-                            cancel(true);
+                            publish("[ERROR] Max retries reached. Stopping poller.");
+                            return null;
                         }
+                        Thread.sleep(POLL_INTERVAL_MS);
                     }
                 }
                 return null;
             }
 
             @Override
-            protected void process(java.util.List<String> chunks) {
+            protected void process(List<String> chunks) {
                 for (String chunk : chunks) {
                     BlantLogWindow.getInstance().appendLog(chunk);
                 }
@@ -98,12 +97,39 @@ public class BlantPoller {
                 callback.onComplete();
             }
         };
-        poller.execute();
+        this.poller.execute();
     }
 
     public void stopPolling() {
-        if (poller != null && !poller.isDone()) {
-            poller.cancel(true);
+        if (this.poller != null && !this.poller.isDone()) {
+            this.poller.cancel(true);
+        }
+    }
+
+    public boolean isPolling() {
+        return this.poller != null && !this.poller.isDone();
+    }
+
+    public void abort() {
+        if (this.isPolling()) {
+            BlantLogWindow logWindow = BlantLogWindow.getInstance();
+            logWindow.appendLog("[INFO] Aborting BLANT task...");
+            try {
+                URL url = URI.create(BlantConfig.getAbortUrl()).toURL();
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+
+                int status = conn.getResponseCode();
+                if (status == 200) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, "Aborted: " + BlantConfig.getJobId()));
+                    this.stopPolling();
+                } else {
+                    logWindow.appendLog("[ERROR] Failed to abort BLANT task. Server returned: " + status);
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, "Failed to abort. Server returned: " + status));
+                }
+            } catch (IOException ex) {
+                logWindow.appendLog("[ERROR] Failed to abort BLANT task: " + ex.getMessage());
+            }
         }
     }
 }
