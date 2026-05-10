@@ -6,8 +6,8 @@ import os
 def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampling_method = "EBE!", MOCK=False):
     process_data = load_job_data(job_data_path)
 
-    if process_data.get("aborted"):
-        return
+    # if process_data.get("aborted"):
+    #     return
 
     process_data["finished"] = False
     update_job_data(process_data, process_data["job_data_path"])

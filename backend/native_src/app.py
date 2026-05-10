@@ -55,30 +55,12 @@ def flushJob(job_id):
 def getStderr(job_id):
     job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
 
-<<<<<<< HEAD
     if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
     else:
         return jsonify({"error": "Job not found."}), 400
     
     stream = request.args.get("stream", default="0", type=str)
-=======
-    def generate():
-        while not process_data["finished"] or not process_data["stderr_queue"].empty():
-            try:
-                line = process_data["stderr_queue"].get(timeout=0.5)
-                if line is None:  # terminates
-                    break
-                yield f"data: {line}\n\n"
-            except queue.Empty:
-                continue
-            except:
-                return "data: BLANT encountered an Error."
-        if process_data.get("aborted"):
-            yield "data: [ABORTED]\n\n"
-        else:
-            yield "data: [PREDICTION COMPLETE]\n\n"
->>>>>>> main
 
     #### deprecated for now until a good method is found. For now it is not important
     # if stream == "1":
@@ -243,27 +225,27 @@ def startBlant():
 
     return jsonify({"job_id": job_id})
 
-@app.route("/abort/<job_id>", methods=["POST"])
-def abortJob(job_id):
-    if job_id not in jobs:
-        return jsonify({"error": "Running job not found."}), 404
+# @app.route("/abort/<job_id>", methods=["POST"])
+# def abortJob(job_id):
+#     if job_id not in jobs:
+#         return jsonify({"error": "Running job not found."}), 404
 
-    job_data = jobs[job_id]
+#     job_data = jobs[job_id]
 
-    if job_data["finished"]:
-        return jsonify({"error": "Job already finished."}), 400
+#     if job_data["finished"]:
+#         return jsonify({"error": "Job already finished."}), 400
 
-    job_data["aborted"] = True
+#     job_data["aborted"] = True
 
-    process = job_data.get("process")
-    if process is not None and process.poll() is None:
-        process.terminate()
+#     process = job_data.get("process")
+#     if process is not None and process.poll() is None:
+#         process.terminate()
 
-    job_data["finished"] = True
-    job_data["stderr_queue"].put(None)
-    update_job_data(job_data, job_data["job_data_path"])
+#     job_data["finished"] = True
+#     job_data["stderr_queue"].put(None)
+#     update_job_data(job_data, job_data["job_data_path"])
 
-    return jsonify({"message": "Job aborted."}), 200
+#     return jsonify({"message": "Job aborted."}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
