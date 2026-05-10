@@ -15,6 +15,9 @@ import org.cytoscape.view.vizmap.VisualMappingFunctionFactory;
 import org.cytoscape.view.vizmap.VisualMappingManager;
 import org.cytoscape.view.vizmap.VisualStyleFactory;
 import org.cytoscape.work.TaskManager;
+import org.cytoscape.work.swing.DialogTaskManager;
+
+import com.blant.edgepredict.internal.util.CacheUtil;
 
 public class MenuAction extends AbstractCyAction {
 
@@ -31,6 +34,7 @@ public class MenuAction extends AbstractCyAction {
     private final CyNetworkViewFactory networkViewFactory;
     private final CyNetworkViewManager networkViewManager;
     private final CyLayoutAlgorithmManager layoutManager;
+    private final DialogTaskManager dialogTaskManager;
 
     public MenuAction(CyApplicationManager appManager,
                       TaskManager taskManager,
@@ -44,7 +48,8 @@ public class MenuAction extends AbstractCyAction {
                       CyNetworkManager networkManager,
                       CyNetworkViewFactory networkViewFactory,
                       CyNetworkViewManager networkViewManager,
-                      CyLayoutAlgorithmManager layoutManager) {
+                      CyLayoutAlgorithmManager layoutManager,
+                      DialogTaskManager dialogTaskManager) {
         super("BLANT Prediction Dashboard");
         this.appManager = appManager;
         this.taskManager = taskManager;
@@ -59,17 +64,22 @@ public class MenuAction extends AbstractCyAction {
         this.networkViewFactory = networkViewFactory;
         this.networkViewManager = networkViewManager;
         this.layoutManager = layoutManager;
+        this.dialogTaskManager = dialogTaskManager;
         setPreferredMenu("Apps");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        if (!CacheUtil.CONFIG_DIR.exists()) CacheUtil.CONFIG_DIR.mkdirs();
+        
         NavDashboard dashboard = NavDashboard.getInstance(
-                taskManager, appManager, writerManager, fileUtil,
-                vmm, vmfDiscrete, vmfPassthrough, vsFactory,
-                networkFactory, networkManager,
-                networkViewFactory, networkViewManager,
-                layoutManager);
-        dashboard.setVisible(true);
+            taskManager, appManager, writerManager, fileUtil,
+            vmm, vmfDiscrete, vmfPassthrough, vsFactory,
+            networkFactory, networkManager,
+            networkViewFactory, networkViewManager,
+            layoutManager, dialogTaskManager);
+            dashboard.setVisible(true);
     }
+
+    
 }

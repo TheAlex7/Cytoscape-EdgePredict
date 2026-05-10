@@ -1,11 +1,14 @@
-import subprocess, threading
+import subprocess, threading, os
 import hashlib
 import json
 
 def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", sampling_method = "MCMC", MOCK=False):
     if not job_id in jobs:
-        return -1 
+        return -1
     process_data = jobs[job_id]
+
+    if process_data.get("aborted"):
+        return
 
     process_data["finished"] = False
     update_job_data(process_data, process_data["job_data_path"])
@@ -23,6 +26,7 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
         text=True,
         bufsize=1
     )
+    process_data["process"] = process
 
     def stream_stderr():
         with open(stderr_path, "w") as f:
@@ -46,6 +50,9 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
     stderr_thread.join()
     stdout_thread.join()
     process.wait()
+
+    if process_data.get("aborted"):
+        return
 
     if is_empty_file(process_data["stdout_path"]):
         process_data["error"] = True
@@ -79,6 +86,8 @@ def update_job_data(data, filepath):
     updated_data = data.copy()
     if "stderr_queue" in updated_data:
         del updated_data["stderr_queue"] # not serializable
+    if "process" in updated_data:
+        del updated_data["process"]
     with open(filepath, "w") as file:
         json.dump(updated_data, file)
 
