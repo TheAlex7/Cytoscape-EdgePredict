@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_file, Response
 import io
 import threading
-import queue
+# import queue
 import os
 from native_src.logic import *
 import shutil
@@ -9,7 +9,6 @@ import shutil
 app = Flask(__name__)
 
 # file size limit 1 MB (1024 * 1024 bytes)
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 # NOTE: 1mb chosen since thats how hayes lab website is
 VALID_EXTENSIONS = {'txt', 'csv', 'sif', 'el'}
 VALID_SAMPLING_METHODS = {"MCMC", "NBE", "EBE!", "RES!", "AR!", "FAYE!", "INDEX", "EDGE_COVER"}
 JOBS_FOLDER = "jobs"
@@ -17,13 +16,11 @@ JOB_DATA_FILENAME = "job_data.json"
 os.makedirs(JOBS_FOLDER, exist_ok=True)
 
 # Store running jobs globally
-global jobs 
-jobs = dict()
 """
 # Jobs should be in this format:
-process_data = {
+job_data = {
+    "error": Bool,
     "finished": Bool,
-    "stderr_queue": queue.Queue(),
     "upload_path": String,
     "stdout_path": String,
     "stderr_path": String,
@@ -45,51 +42,68 @@ def fileTooLarge(error):
 def flushJob(job_id):
     job_path = os.path.join(JOBS_FOLDER, job_id)
 
-    if not job_id in jobs and not os.path.isdir(job_path):
+    if not os.path.isdir(job_path): # not job_id in jobs and 
         return jsonify({"error": "Job not found."}), 400
-    
-    if job_id in jobs:
-        del jobs[job_id]
 
     if os.path.isdir(job_path):
         shutil.rmtree(job_path)
     
     return jsonify({"message": "Successfully cleared specified job data."}), 200
 
-@app.route("/stderr_stream/<job_id>")
+@app.route("/stderr/<job_id>")
 def getStderr(job_id):
-    if not job_id in jobs:
-        return jsonify({"error": "Running job not found."}), 400
-    process_data = jobs[job_id]
+    job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
 
-    def generate():
-        while not process_data["finished"] or not process_data["stderr_queue"].empty():
-            try:
-                line = process_data["stderr_queue"].get(timeout=0.5)
-                if line is None:  # terminates
-                    break
-                yield f"data: {line}\n\n"
-            except queue.Empty:
-                continue
-            except:
-                return "data: BLANT encountered an Error."
-        yield "data: [PREDICTION COMPLETE]\n\n"
+    if os.path.isfile(job_data_path):
+        job_data = load_job_data(job_data_path)
+    else:
+        return jsonify({"error": "Job not found."}), 400
+    
+    stream = request.args.get("stream", default="0", type=str)
 
-    return Response(generate(), mimetype="text/event-stream", headers={'X-Accel-Buffering': 'no'})
+    #### deprecated for now until a good method is found. For now it is not important
+    # if stream == "1":
+    #     # stream file data according to 
+    #     pass
+
+    buffer = io.BytesIO()
+    with open(job_data["stderr_path"], "r", encoding="utf-8") as file:
+        buffer.write(file.read().encode("utf-8"))
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f'{job_data["base_name"]}_stderr.txt',
+        mimetype='text/plain'
+    )
+
+    # def generate():
+    #     while not process_data["finished"] or not process_data["stderr_queue"].empty():
+    #         try:
+    #             line = process_data["stderr_queue"].get(timeout=0.5)
+    #             if line is None:  # terminates
+    #                 break
+    #             yield f"data: {line}\n\n"
+    #         except queue.Empty:
+    #             continue
+    #         except:
+    #             return "data: BLANT encountered an Error."
+    #     yield "data: [PREDICTION COMPLETE]\n\n"
+
+    # return Response(generate(), mimetype="text/event-stream", headers={'X-Accel-Buffering': 'no'})
 
 @app.route("/results/<job_id>")
 def getResult(job_id):
     job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
-    if job_id in jobs:
-        job_data = jobs[job_id]
-    elif os.path.isfile(job_data_path):
+    if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
     else:
         return jsonify({"error": "Job not found."}), 400
     
     raw_output = request.args.get("raw_out", default="0", type=str)
         
-    if "error" in job_data:
+    if job_data["error"]:
         return jsonify({"error" : "Job encountered an error."}), 500
     if not job_data["finished"]:
         return jsonify({"error": "Job not done."}), 400
@@ -117,14 +131,14 @@ def getResult(job_id):
 @app.route("/progress/<job_id>")
 def checkProgress(job_id):
     job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
-    if job_id in jobs:
-        job_data = jobs[job_id]
-    elif os.path.isfile(job_data_path):
+    if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
     else:
         return jsonify({"error": "Job not found."}), 400
 
-    if not job_data["finished"]:
+    if job_data["error"]:
+        return jsonify({"progress": 0, "error": "Job encounterd an error"}), 500
+    elif not job_data["finished"]:
         return jsonify({"progress": 0})
 
     return jsonify({"progress": 1})
@@ -167,7 +181,7 @@ def startBlant():
     if not isForced.isnumeric():
         return jsonify({"error": f"force must be integer representation of a boolean."}), 400
     
-    # extension includes "." (ex: .gml, .el, .txt), if no extension then empty str
+    # extension includes "." (ex: .sif, .el, .txt), if no extension then empty str
     user_ext = "." + file.filename.rsplit('.', 1)[1].lower() if "." in file.filename else ""
 
     job_id = get_checksum(file) # should be the checksum of the upload file
@@ -183,15 +197,16 @@ def startBlant():
 
     if isForced == "0" and os.path.isfile(stdout_path): # not a forced job and it already exists
         return jsonify({"error" : f"Job is already running or has already been computed.",
-                        "jobID" : job_id}), 409
+                        "job_id" : job_id}), 409
 
     file.save(upload_path)
 
     cleaned_base_name = file.filename.rsplit('.', 1)[0].lower().replace(".", "_") # just in case given weird file names
 
     job_data = {
+        # "stderr_queue" : queue.Queue(),
         "finished": False,
-        "stderr_queue" : queue.Queue(),
+        "error": False,
         "upload_path": upload_path,
         "stdout_path": stdout_path,
         "stderr_path": stderr_path,
@@ -201,11 +216,9 @@ def startBlant():
 
     update_job_data(job_data, job_data_path)
 
-    jobs[job_id] = job_data
-
     thread = threading.Thread(
         target=run_blant,
-        args=(jobs, job_id, upload_path, stdout_path, stderr_path, k, sampling_method, isMock=="1")
+        args=(job_data_path, upload_path, stdout_path, stderr_path, k, sampling_method, isMock=="1")
     )
     thread.start() # separate thread to continue handling other calls
 

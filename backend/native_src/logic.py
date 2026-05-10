@@ -1,11 +1,10 @@
 import subprocess, threading
 import hashlib
 import json
+import os
 
-def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", sampling_method = "MCMC", MOCK=False):
-    if not job_id in jobs:
-        return -1 
-    process_data = jobs[job_id]
+def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampling_method = "EBE!", MOCK=False):
+    process_data = load_job_data(job_data_path)
 
     process_data["finished"] = False
     update_job_data(process_data, process_data["job_data_path"])
@@ -27,15 +26,22 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
     def stream_stderr():
         with open(stderr_path, "w") as f:
             for line in process.stderr:
-                process_data["stderr_queue"].put(line) # streaming line
+                # process_data["stderr_queue"].put(line) # streaming line # deprecated
                 f.write(line) # saving output
                 f.flush()
 
     def capture_stdout():
+        empty = True
         with open(stdout_path, "w") as f:
             for line in process.stdout:
                 f.write(line)
                 f.flush()
+                empty = False
+
+        # makes sure empty file doesn't persist
+        if empty:
+            os.remove(stdout_path)
+        
 
     stderr_thread = threading.Thread(target=stream_stderr)
     stdout_thread = threading.Thread(target=capture_stdout)
@@ -47,7 +53,7 @@ def run_blant(jobs, job_id, input_path, stdout_path, stderr_path, k="4", samplin
     stdout_thread.join()
     process.wait()
 
-    if is_empty_file(process_data["stdout_path"]):
+    if not os.path.isfile(process_data["stdout_path"]): #stdout doesn't exist = error happened
         process_data["error"] = True
     else:
         process_data["finished"] = True
