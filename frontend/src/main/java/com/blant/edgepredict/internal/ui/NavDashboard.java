@@ -101,6 +101,10 @@ public class NavDashboard extends JFrame {
         closePopupsBtn.addActionListener(e -> { EdgeDetailPanel.closeAll(); NodeDetailPanel.closeAll(); });
         closePopupsBtn.setPreferredSize(new Dimension(120, 25));
 
+        JButton projectsBtn = new JButton("My Projects");
+        projectsBtn.addActionListener(e -> ProjectsDashboard.getInstance(networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory));
+        projectsBtn.setPreferredSize(new Dimension(120, 25));
+
         JButton sendBtn = new JButton("Send to BLANT");
         sendBtn.addActionListener(e -> {
             this.kVal.clear();
@@ -109,8 +113,10 @@ public class NavDashboard extends JFrame {
                     this.kVal.add(cb.getLabel());
                 }
             }
+            String projectName = ProjectNameDialog.show(NavDashboard.this);
+            if (projectName == null) return;
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, projectName).run();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(NavDashboard.this, "Send to BLANT failed: " + ex.getMessage());
             }
@@ -120,6 +126,7 @@ public class NavDashboard extends JFrame {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.add(logBtn);
         buttonPanel.add(closePopupsBtn);
+        buttonPanel.add(projectsBtn);
         buttonPanel.add(sendBtn);
         this.add(buttonPanel, BorderLayout.SOUTH);
 

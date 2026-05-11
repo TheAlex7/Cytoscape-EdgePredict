@@ -19,12 +19,14 @@ import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.DockerUtil;
+import com.blant.edgepredict.internal.util.ProjectStore;
 
 public class PredictTaskManager {
     private final String sampleMethod;
     private final double precisionDigits;
     private final List<String> kVal;
     private final boolean isSaved;
+    private final String projectName;
     private final FileUtil fileUtil;
     private final CyNetworkFactory networkFactory;
     private final CyNetworkManager networkManager;
@@ -37,11 +39,12 @@ public class PredictTaskManager {
     private final VisualStyleFactory vsFactory;
     private final DialogTaskManager dialogTaskManager;
 
-    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved) {
+    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, String projectName) {
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
         this.isSaved = isSaved;
+        this.projectName = projectName;
         this.fileUtil = fileUtil;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
@@ -94,6 +97,10 @@ public void run() {
                         if (!BlantConfig.getAborted()) {
                             try {
                                 new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
+                                String savedJobId = BlantConfig.getJobId();
+                                if (savedJobId != null && projectName != null && !projectName.isBlank()) {
+                                    ProjectStore.saveProject(projectName, savedJobId);
+                                }
                             } catch (Exception ex) {
                                 System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
                             } finally {
