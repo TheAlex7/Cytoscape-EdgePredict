@@ -113,7 +113,7 @@ public class NavDashboard extends JFrame {
                     this.kVal.add(cb.getLabel());
                 }
             }
-            String projectName = ProjectNameDialog.show(NavDashboard.this);
+            String projectName = askForUniqueName();
             if (projectName == null) return;
             try {
                 new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, projectName).run();
@@ -133,6 +133,7 @@ public class NavDashboard extends JFrame {
         this.pack();
         this.setLocationRelativeTo((Component) null);
         this.setResizable(false);
+        this.setAlwaysOnTop(true);
         this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
         this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
@@ -276,6 +277,20 @@ public class NavDashboard extends JFrame {
         panel.add(chkSave);
         panel.add(chkOnline);
         return panel;
+    }
+
+    private String askForUniqueName() {
+        while (true) {
+            String name = ProjectNameDialog.show(this);
+            if (name == null) return null;
+            if (com.blant.edgepredict.internal.util.ProjectStore.getProjects().containsKey(name)) {
+                JOptionPane.showMessageDialog(this,
+                    "A project named \"" + name + "\" already exists. Please choose a different name.",
+                    "Name Already Used", JOptionPane.WARNING_MESSAGE);
+            } else {
+                return name;
+            }
+        }
     }
 
     public void setScoreRange(double min, double max, CyNetworkView view) {

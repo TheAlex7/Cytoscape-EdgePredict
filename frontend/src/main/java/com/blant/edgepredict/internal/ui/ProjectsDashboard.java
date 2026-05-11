@@ -146,10 +146,17 @@ public class ProjectsDashboard extends JFrame {
 
         BlantConfig.setJobId(jobId);
         BlantConfig.setLoad(true);
-        BlantConfig.setInputFile(null);
+
+        java.io.File inputFile = ProjectStore.getInputFile(jobId);
+        BlantConfig.setInputFile(inputFile);
 
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
         logWindow.appendLog("[INFO] Loading project: " + name + " (job: " + jobId + ")");
+        if (inputFile != null) {
+            logWindow.appendLog("[INFO] Input file found: " + inputFile.getName());
+        } else {
+            logWindow.appendLog("[WARN] Original input file not found — original edges will not be shown.");
+        }
         logWindow.setVisible(true);
 
         new Thread(() -> {
@@ -178,6 +185,7 @@ public class ProjectsDashboard extends JFrame {
         if (confirm == JOptionPane.YES_OPTION) {
             ProjectStore.deleteProject(name);
             refresh();
+            BlantLogWindow.getInstance().appendLog("[INFO] Project deleted: " + name);
         }
     }
 
@@ -205,6 +213,14 @@ public class ProjectsDashboard extends JFrame {
 
         ProjectStore.renameProject(name, newName);
         refresh();
+        BlantLogWindow.getInstance().appendLog("[INFO] Project renamed: \"" + name + "\" → \"" + newName + "\"");
+    }
+
+    /** Refreshes the project list if the dashboard is currently open. Safe to call from any thread. */
+    public static void refreshIfOpen() {
+        if (instance != null && instance.isDisplayable()) {
+            SwingUtilities.invokeLater(instance::refresh);
+        }
     }
 
     public static ProjectsDashboard getInstance(

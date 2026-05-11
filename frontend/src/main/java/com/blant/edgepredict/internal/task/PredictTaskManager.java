@@ -16,6 +16,7 @@ import org.cytoscape.work.TaskIterator;
 import org.cytoscape.work.swing.DialogTaskManager;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import com.blant.edgepredict.internal.ui.ProjectsDashboard;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.DockerUtil;
@@ -99,7 +100,18 @@ public void run() {
                                 new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
                                 String savedJobId = BlantConfig.getJobId();
                                 if (savedJobId != null && projectName != null && !projectName.isBlank()) {
-                                    ProjectStore.saveProject(projectName, savedJobId);
+                                    String existing = ProjectStore.getNameByJobId(savedJobId);
+                                    if (existing != null) {
+                                        logWindow.appendLog("[INFO] This job is already saved locally as \"" + existing + "\" — not creating a duplicate.");
+                                    } else {
+                                        ProjectStore.saveProject(projectName, savedJobId);
+                                        java.io.File inputFile = BlantConfig.getInputFile();
+                                        if (inputFile != null) {
+                                            ProjectStore.saveInputFile(savedJobId, inputFile);
+                                        }
+                                        logWindow.appendLog("[INFO] Project saved: \"" + projectName + "\"");
+                                        ProjectsDashboard.refreshIfOpen();
+                                    }
                                 }
                             } catch (Exception ex) {
                                 System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);

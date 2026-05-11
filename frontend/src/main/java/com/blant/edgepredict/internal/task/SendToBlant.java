@@ -28,7 +28,7 @@ import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.CacheUtil;
 
 public class SendToBlant {
-    private static final Pattern JOB_ID_PATTERN = Pattern.compile("\"job_id\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern JOB_ID_PATTERN = Pattern.compile("\"job(?:_id|ID)\"\\s*:\\s*\"([^\"]+)\"");
 
     private final FileUtil fileUtil;
     private final CyNetworkFactory networkFactory;
@@ -135,11 +135,32 @@ public class SendToBlant {
                     }
                     return true;
                 } else {
-                    this.logWindow.appendLog("[Info] " + status + ": " + responseText);
-                    responseText = CacheUtil.getOutput(jobId);
+                    // HTTP 409: job already exists on server
+                    this.logWindow.appendLog("[INFO] " + status + ": " + responseText);
+                    String cached = CacheUtil.getOutput(jobId);
+                    if (cached.startsWith("[ERROR]")) {
+                        // Not in local cache — download it from the server
+                        this.logWindow.appendLog("[INFO] Result not cached locally, downloading from server...");
+                        try {
+                            URL resultUrl = new URL(BlantConfig.getResultUrl() + jobId);
+                            HttpURLConnection resultConn = (HttpURLConnection) resultUrl.openConnection();
+                            resultConn.setRequestMethod("GET");
+                            int resultStatus = resultConn.getResponseCode();
+                            if (resultStatus == 200) {
+                                cached = new String(resultConn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                                this.logWindow.appendLog(CacheUtil.saveOutput(jobId, cached));
+                                this.logWindow.appendLog("[INFO] Result downloaded and cached.");
+                            } else {
+                                this.logWindow.appendLog("[WARN] Server returned HTTP " + resultStatus + " for result — will retry with force.");
+                            }
+                        } catch (Exception downloadEx) {
+                            this.logWindow.appendLog("[WARN] Could not download result: " + downloadEx.getMessage());
+                        }
+                    } else {
+                        this.logWindow.appendLog("[INFO] Loaded result from local cache.");
+                    }
                     BlantConfig.setLoad(true);
-
-                    return !responseText.contains("ERROR");
+                    return !cached.startsWith("[ERROR]");
                 }
             }
         } catch (Exception ex) {

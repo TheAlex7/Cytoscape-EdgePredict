@@ -61,7 +61,7 @@ public class ImportGraph {
 
         if (BlantConfig.getLoad()) {
             String responseText = CacheUtil.getOutput(jobId);
-            this.logWindow.appendLog(responseText);
+            this.logWindow.appendLog("[INFO] Loading result from cache for job: " + jobId);
             if (responseText.contains("ERROR")) {
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog((Component) null, "Locally saved file cannot be read."));
             } else {
@@ -89,7 +89,6 @@ public class ImportGraph {
             } else {
                 String responseText = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 this.logWindow.appendLog("[INFO] Result received. Parsing network...");
-                this.logWindow.appendLog("[DEBUG] Raw response:\n" + responseText);
                 SwingUtilities.invokeLater(() -> {
                     try {
                         this.processResult(responseText, jobId);

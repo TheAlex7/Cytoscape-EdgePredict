@@ -76,7 +76,7 @@ public class BlantPoller {
                         publish(String.format("[WARN] Connection failed (%d/%d): %s", retryCount, MAX_RETRIES, e.getMessage()));
 
                         if (retryCount >= MAX_RETRIES) {
-                            publish("[ERROR] Max retries reached. Stopping poller.");
+                            publish("[ERROR] Could not reach the BLANT server after " + MAX_RETRIES + " attempts. The session may have timed out — please wait a few minutes and try again.");
                             return null;
                         }
                         Thread.sleep(POLL_INTERVAL_MS);

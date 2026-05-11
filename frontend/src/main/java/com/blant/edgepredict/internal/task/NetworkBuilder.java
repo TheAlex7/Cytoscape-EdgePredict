@@ -72,7 +72,6 @@ public class NetworkBuilder {
             if (orbitPair != null) network.getRow(edge).set("orbit_pair", orbitPair);
 
             edgesAdded++;
-            logWindow.appendLog("[DEBUG] Edge: " + sourceName + " -> " + targetName + " score=" + score + " orbit_pair=" + orbitPair);
         }
 
         for (CyEdge edge : network.getEdgeList()) {
