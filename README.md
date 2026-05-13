@@ -1,5 +1,5 @@
 # Cytoscape-EdgePredict
-This project is concerned with the wide deployment of [Professor Hayes'](https://github.com/waynebhayes) BLANT-Predict algorithm used for the edge prediction on a given network. We mainly provide access to BLANT-Predict through a plugin on [Cytoscape](https://cytoscape.org/) (a popular network analysis tool) but we also provide a [Docker image of our backend API](https://hub.docker.com/repository/docker/thealex7/blant-predict/general) which can be used locally or on a personal server. 
+This project is concerned with the wide deployment of [Professor Hayes'](https://github.com/waynebhayes) BLANT-Predict algorithm used for the edge prediction on a given network. We mainly provide access to BLANT-Predict through a plugin on [Cytoscape](https://cytoscape.org/) (a popular network analysis tool) but we also provide a [Docker image of our backend API](https://hub.docker.com/r/thealex7/blant-predict) which can be used locally or on a personal server. 
 
 Consequently, this allows for the use of the BLANT-Predict API by services outside of Cytoscape.
 
@@ -41,7 +41,7 @@ Cytoscape will automatically install BLANT Prediction into your Cytoscape.
 BLANT Prediction will also save user input/output caches in `CytoscapeConfiguration\3\apps\BLANT` after running the task if the user agrees to save input and output.
 
 ### Running Backend (Optional)
-The Cytoscape frontend connects to our publicly hosted Docker Image endpoints by default. We recommend sticking with our servers but if you need a way to run the program offline or want to use it on your own server, you may do this by pulling [our Docker image](https://hub.docker.com/repository/docker/thealex7/blant-predict/general) from DockerHub.
+The Cytoscape frontend connects to our publicly hosted Docker Image endpoints by default. We recommend sticking with our servers but if you need a way to run the program offline or want to use it on your own server, you may do this by pulling [our Docker image](https://hub.docker.com/r/thealex7/blant-predict) from DockerHub.
 
 **Prerequisite:** Must have [Docker](https://docs.docker.com/get-started/get-docker/) installed
 
