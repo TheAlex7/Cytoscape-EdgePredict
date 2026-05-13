@@ -7,7 +7,13 @@ RUN apt-get update && apt-get install -y \
     gawk \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd -g 1234 blantgroup &amp;&amp; \
+    useradd -m -u 1234 -g blantgroup blantuser
+
 WORKDIR /app
+    
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 ENV WORKERS=1
 ENV THREADS=4
@@ -16,17 +22,18 @@ ENV PATH="$PATH:/app/libwayne/bin"
 # COPY everything not in the dockerignore
 COPY BLANT .
 COPY native_src ./native_src
-COPY requirements.txt .
 COPY server.py .
 
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
 RUN ./native_src/scripts/make_mock.sh
+
+RUN chown -R blantuser:blantgroup /app
+
+USER blantuser
 
 EXPOSE 5000
 
 # production
-# CMD gunicorn --workers $WORKERS --threads $THREADS server:app -b 0.0.0.0:5000
-# CMD ["sh", "-c", "exec gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000"]
+CMD ["sh", "-c", "exec gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000"]
 
 # development
-CMD ["python", "server.py"]
+# CMD ["python", "server.py"]
