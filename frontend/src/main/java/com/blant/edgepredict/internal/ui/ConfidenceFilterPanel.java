@@ -210,6 +210,15 @@ public class ConfidenceFilterPanel extends JPanel {
         view.updateView();
     }
 
+    public double getCurrentThreshold() {
+        double fraction = (double) confidenceSlider.getValue() / SLIDER_SCALE;
+        return scoreMin + fraction * (scoreMax - scoreMin);
+    }
+
+    public boolean isSliderEnabled() {
+        return confidenceSlider.isEnabled();
+    }
+
     private JPanel buildColorLegend() {
         JPanel wrapper = new JPanel(new BorderLayout(4, 0));
         JPanel gradientBar = new JPanel() {

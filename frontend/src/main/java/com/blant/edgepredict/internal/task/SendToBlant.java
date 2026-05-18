@@ -175,6 +175,8 @@ public class SendToBlant {
                     BlantConfig.setLoad(true);
                     return !cached.startsWith("[ERROR]");
                 }
+            } else {
+                this.logWindow.appendLog("[ERROR] Server returned HTTP " + status + ": " + responseText);
             }
         } catch (Exception ex) {
             this.logWindow.appendLog("[ERROR] Exception: " + ex.getMessage());

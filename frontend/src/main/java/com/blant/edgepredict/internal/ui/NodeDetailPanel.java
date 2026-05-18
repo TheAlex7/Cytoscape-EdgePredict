@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -78,13 +79,16 @@ public class NodeDetailPanel extends JDialog {
 
     private final CyNetwork     network;
     private final CyNetworkView netView;
+    private final List<EdgeInfo> allPredicted;
+    private final List<EdgeInfo> allOriginal;
+    private JScrollPane scrollPane;
 
     // ── constructor ───────────────────────────────────────────────────────────
 
     public NodeDetailPanel(Frame parent, String nodeName,
                            List<EdgeInfo> predicted, List<EdgeInfo> original,
                            CyNetwork network, CyNetworkView netView) {
-        super(parent, "Node Details", false);
+        super(parent, nodeName != null ? nodeName : "?", false);  // Fix 5: node name as title
         this.nodeName = nodeName;
         this.network = network;
         this.netView = netView;
@@ -93,65 +97,49 @@ public class NodeDetailPanel extends JDialog {
             if (b.score == null) return -1;
             return Double.compare(b.score, a.score);
         });
+        this.allPredicted = new ArrayList<>(predicted);   // Fix 2: store full sorted list
+        this.allOriginal  = new ArrayList<>(original);
 
         setLayout(new BorderLayout());
         getRootPane().setBorder(BorderFactory.createLineBorder(DIVIDER, 1));
 
-        // Header
+        // Header — Fix 5: just the node name, no redundant "Node Details" label
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(HEADER_BG);
         header.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-        JLabel title = new JLabel("Node Details");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 12f));
-        title.setForeground(HEADER_FG);
-        header.add(title, BorderLayout.WEST);
         JLabel nameLabel = new JLabel(nodeName != null ? nodeName : "?");
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.PLAIN, 11f));
-        nameLabel.setForeground(new Color(148, 163, 184));
-        header.add(nameLabel, BorderLayout.EAST);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 13f));
+        nameLabel.setForeground(HEADER_FG);
+        header.add(nameLabel, BorderLayout.WEST);
         add(header, BorderLayout.NORTH);
 
-        // Body
-        JPanel body = new JPanel();
-        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        body.setBackground(Color.WHITE);
-        body.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
-
-        body.add(buildSectionHeader("Predicted Edges (" + predicted.size() + ")", PREDICTED_COLOR));
-        body.add(Box.createVerticalStrut(2));
-        if (predicted.isEmpty()) {
-            body.add(buildSimpleRow("None", LABEL_FG));
+        // Body — Fix 2: apply current slider threshold on open
+        scrollPane = new JScrollPane();
+        scrollPane.setBorder(null);
+        List<EdgeInfo> displayPredicted;
+        if (NavDashboard.isFilterEnabled()) {
+            double initThreshold = NavDashboard.getCurrentThreshold();
+            displayPredicted = allPredicted.stream()
+                    .filter(e -> e.score == null || e.score >= initThreshold)
+                    .collect(Collectors.toList());
         } else {
-            body.add(buildColumnHeaders());
-            body.add(buildDivider());
-            for (int i = 0; i < predicted.size(); i++) {
-                body.add(buildPredictedRow(predicted.get(i)));
-                if (i < predicted.size() - 1) body.add(buildDivider());
-            }
+            displayPredicted = new ArrayList<>(allPredicted);
         }
-
-        body.add(Box.createVerticalStrut(10));
-        body.add(buildSectionHeader("Original Edges (" + original.size() + ")", ORIGINAL_COLOR));
-        body.add(Box.createVerticalStrut(2));
-        if (original.isEmpty()) {
-            body.add(buildSimpleRow("None", LABEL_FG));
-        } else {
-            for (int i = 0; i < original.size(); i++) {
-                body.add(buildOriginalRow(original.get(i).neighbor));
-                if (i < original.size() - 1) body.add(buildDivider());
-            }
-        }
-
-        int totalRows = predicted.size() + original.size();
-        JScrollPane scroll = new JScrollPane(body);
-        scroll.setBorder(null);
-        scroll.setPreferredSize(new Dimension(420, Math.min(420, totalRows * 28 + 130)));
-        add(scroll, BorderLayout.CENTER);
+        setBodyContent(displayPredicted);
+        add(scrollPane, BorderLayout.CENTER);
 
         // Footer
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 6));
         footer.setBackground(new Color(248, 250, 252));
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, DIVIDER));
+
+        // Fix 2: button to re-filter by the current slider threshold
+        JButton filterBtn = new JButton("Filter by Threshold");
+        filterBtn.setFont(filterBtn.getFont().deriveFont(Font.PLAIN, 11f));
+        filterBtn.setFocusPainted(false);
+        filterBtn.addActionListener(e -> applyFilter());
+        footer.add(filterBtn);
+
         JButton close = new JButton("Close");
         close.setFont(close.getFont().deriveFont(Font.PLAIN, 11f));
         close.setBackground(BTN_BG);
@@ -186,6 +174,56 @@ public class NodeDetailPanel extends JDialog {
             }
         });
         setVisible(true);
+    }
+
+    private void setBodyContent(List<EdgeInfo> displayPredicted) {
+        JPanel body = new JPanel();
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        body.setBackground(Color.WHITE);
+        body.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+
+        body.add(buildSectionHeader("Predicted Edges (" + displayPredicted.size() + ")", PREDICTED_COLOR));
+        body.add(Box.createVerticalStrut(2));
+        if (displayPredicted.isEmpty()) {
+            body.add(buildSimpleRow("None", LABEL_FG));
+        } else {
+            body.add(buildColumnHeaders());
+            body.add(buildDivider());
+            for (int i = 0; i < displayPredicted.size(); i++) {
+                body.add(buildPredictedRow(displayPredicted.get(i)));
+                if (i < displayPredicted.size() - 1) body.add(buildDivider());
+            }
+        }
+
+        body.add(Box.createVerticalStrut(10));
+        body.add(buildSectionHeader("Original Edges (" + allOriginal.size() + ")", ORIGINAL_COLOR));
+        body.add(Box.createVerticalStrut(2));
+        if (allOriginal.isEmpty()) {
+            body.add(buildSimpleRow("None", LABEL_FG));
+        } else {
+            for (int i = 0; i < allOriginal.size(); i++) {
+                body.add(buildOriginalRow(allOriginal.get(i).neighbor));
+                if (i < allOriginal.size() - 1) body.add(buildDivider());
+            }
+        }
+
+        int totalRows = displayPredicted.size() + allOriginal.size();
+        scrollPane.setViewportView(body);
+        scrollPane.setPreferredSize(new Dimension(420, Math.min(420, totalRows * 28 + 130)));
+    }
+
+    private void applyFilter() {
+        List<EdgeInfo> filtered;
+        if (NavDashboard.isFilterEnabled()) {
+            double threshold = NavDashboard.getCurrentThreshold();
+            filtered = allPredicted.stream()
+                    .filter(e -> e.score == null || e.score >= threshold)
+                    .collect(Collectors.toList());
+        } else {
+            filtered = new ArrayList<>(allPredicted);
+        }
+        setBodyContent(filtered);
+        pack();
     }
 
     public static void closeAll() {

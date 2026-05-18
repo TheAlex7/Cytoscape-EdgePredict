@@ -136,7 +136,7 @@ public class NavDashboard extends JFrame {
         this.setResizable(false);
         this.setAlwaysOnTop(true);
         this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
-        this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        this.setDefaultCloseOperation(HIDE_ON_CLOSE);
     }
 
     private JPanel advancedPanel() {
@@ -302,6 +302,16 @@ public class NavDashboard extends JFrame {
 
     public static NavDashboard getExistingInstance() {
         return instance;
+    }
+
+    public static double getCurrentThreshold() {
+        if (instance == null || !instance.isDisplayable()) return 0.0;
+        return instance.filterPanel.getCurrentThreshold();
+    }
+
+    public static boolean isFilterEnabled() {
+        if (instance == null || !instance.isDisplayable()) return false;
+        return instance.filterPanel.isSliderEnabled();
     }
 
     public static NavDashboard getInstance(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {

@@ -2,6 +2,7 @@ package com.blant.edgepredict.internal.util;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -48,7 +49,8 @@ public class BlantPoller {
                         conn.setConnectTimeout(2000);
                         conn.setReadTimeout(2000);
 
-                        if (conn.getResponseCode() == 200) {
+                        int responseCode = conn.getResponseCode();
+                        if (responseCode == 200) {
                             retryCount = 0;
                             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
                             StringBuilder sb = new StringBuilder();
@@ -68,6 +70,17 @@ public class BlantPoller {
                                 }
                             } else {
                                 publish("[WARN] Could not parse progress from response: " + response);
+                            }
+                        } else {
+                            InputStream errStream = conn.getErrorStream();
+                            if (errStream != null) {
+                                BufferedReader errReader = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8));
+                                StringBuilder errSb = new StringBuilder();
+                                String errLine;
+                                while ((errLine = errReader.readLine()) != null) errSb.append(errLine);
+                                publish("[ERROR] Server returned HTTP " + responseCode + ": " + errSb.toString());
+                            } else {
+                                publish("[ERROR] Server returned HTTP " + responseCode);
                             }
                         }
                         Thread.sleep(5000); // Poll every 5 second
