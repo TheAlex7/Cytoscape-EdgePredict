@@ -60,7 +60,7 @@ public class NavDashboard extends JFrame {
     private final DialogTaskManager dialogTaskManager;
 
     private String sampleMethod;
-    private double precisionDigits;
+    private double precisionDigits = 1.0;
     private List<String> kVal = new ArrayList<>();
     private String graphType = "Undirected";
     private boolean isSaved = true;
@@ -68,6 +68,7 @@ public class NavDashboard extends JFrame {
     private final JPanel kValPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
     private final ConfidenceFilterPanel filterPanel;
     private JSlider precisionSlider;
+    private Boolean isFile = false;
 
     private NavDashboard(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {
         super("BLANT Navigation Controller");
@@ -93,11 +94,11 @@ public class NavDashboard extends JFrame {
         this.add(this.advancedPanel(), BorderLayout.CENTER);
         this.add(this.filterPanel, BorderLayout.NORTH);
 
-        JButton logBtn = new JButton("BLANT Log");
+        JButton logBtn = new JButton("Open Log");
         logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
         logBtn.setPreferredSize(new Dimension(120, 25));
 
-        JButton closePopupsBtn = new JButton("Close All Popups");
+        JButton closePopupsBtn = new JButton("Close Popups");
         closePopupsBtn.addActionListener(e -> { EdgeDetailPanel.closeAll(); NodeDetailPanel.closeAll(); });
         closePopupsBtn.setPreferredSize(new Dimension(120, 25));
 
@@ -105,7 +106,7 @@ public class NavDashboard extends JFrame {
         projectsBtn.addActionListener(e -> ProjectsDashboard.getInstance(networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory));
         projectsBtn.setPreferredSize(new Dimension(120, 25));
 
-        JButton sendBtn = new JButton("Send to BLANT");
+        JButton sendBtn = new JButton("Run");
         sendBtn.addActionListener(e -> {
             this.kVal.clear();
              for (Checkbox cb : kValCheckboxes) {
@@ -116,9 +117,9 @@ public class NavDashboard extends JFrame {
             String projectName = askForUniqueName();
             if (projectName == null) return;
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, projectName).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, projectName, this.isFile).run();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(NavDashboard.this, "Send to BLANT failed: " + ex.getMessage());
+                JOptionPane.showMessageDialog(NavDashboard.this, "Predict task failed: " + ex.getMessage());
             }
         });
         sendBtn.setPreferredSize(new Dimension(120, 25));
@@ -224,7 +225,8 @@ public class NavDashboard extends JFrame {
     private JPanel graphTypePanel() {
         JPanel panel = new JPanel(new GridLayout(2, 1));
         JLabel label = new JLabel("Graph Type");
-        String[] types = {"Undirected", "Directed"};
+        // String[] types = {"Undirected", "Directed"};
+        String[] types = {"Undirected"};
         JComboBox<String> combo = new JComboBox<>(types);
         combo.addActionListener(e -> {
             this.graphType = (String) combo.getSelectedItem(); 
@@ -258,6 +260,7 @@ public class NavDashboard extends JFrame {
             this.kValCheckboxes.add(cb);
             this.kValPanel.add(cb);
         }
+        kValCheckboxes.get(0).setState(true);
 
         outerPanel.add(new JLabel("K-values"));
         outerPanel.add(this.kValPanel);

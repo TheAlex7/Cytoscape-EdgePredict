@@ -54,9 +54,22 @@ public class SendToBlant {
         this.isSaved = isSaved;
     }
 
-    public File selectFile() {
-        FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
-        return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+    public File selectFile(Boolean isFile) {
+        if (isFile) {
+            FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
+            return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+        }
+        else {
+            ExportGraph exportGraph = ExportGraph.getInstance();
+            try {
+                return exportGraph.ExportCurrentGraph(new org.cytoscape.work.TaskMonitor() {
+                public void setTitle(String s) {} public void setProgress(double p) {}
+                public void setStatusMessage(String s) {} public void showMessage(org.cytoscape.work.TaskMonitor.Level l, String s) {}});
+            } catch (Exception e) {
+                this.logWindow.appendLog("[ERROR] Failed to export current graph: " + e.getMessage());
+                return null;
+            }
+        }
     }
 
     public boolean send(File file) throws Exception {

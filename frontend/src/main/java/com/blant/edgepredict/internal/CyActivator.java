@@ -21,6 +21,7 @@ import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.swing.DialogTaskManager;
 import org.osgi.framework.BundleContext;
 
+import com.blant.edgepredict.internal.task.ExportGraph;
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.ui.EdgeDetailPanel;
 import com.blant.edgepredict.internal.ui.MenuAction;
@@ -44,6 +45,7 @@ public class CyActivator extends AbstractCyActivator {
         DialogTaskManager dialogTaskManager = getService(bc, DialogTaskManager.class);
         CySwingApplication swingApp = getService(bc, CySwingApplication.class);
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
+        ExportGraph.setInstance(appManager, writerManager);
 
         // Two VMF factories: one for discrete mappings, one for passthrough
         VisualMappingFunctionFactory vmfDiscrete =

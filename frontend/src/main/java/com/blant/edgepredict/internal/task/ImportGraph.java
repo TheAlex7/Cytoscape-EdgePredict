@@ -161,9 +161,9 @@ public class ImportGraph {
             dashboard.setScoreRange(scoreMin, scoreMax, view);
         }
 
-        JOptionPane.showMessageDialog((Component) null,
-                "Import complete: " + added + " edges added.\n"
-                + String.format("Score range: %.4f – %.4f", scoreMin, scoreMax));
+        // JOptionPane.showMessageDialog((Component) null,
+        //         "Import complete: " + added + " edges added.\n"
+        //         + String.format("Score range: %.4f – %.4f", scoreMin, scoreMax));
     }
 
 }

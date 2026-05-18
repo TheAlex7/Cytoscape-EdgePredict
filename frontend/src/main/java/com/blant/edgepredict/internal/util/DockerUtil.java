@@ -74,14 +74,12 @@ public class DockerUtil extends AbstractTask {
         // 2. Download image if not exists
         monitor.setStatusMessage("Checking for analysis image...");
         monitor.setProgress(0.3);
-        boolean imageExists = executeCommand("docker image inspect flask-blant");
+        boolean imageExists = executeCommand("docker image inspect thealex7/blant-predict:v1");
         if (!imageExists) {
             monitor.setStatusMessage("Downloading analysis engine. This may take a few minutes ...");
-
-            if (!executeCommand("docker pull thealex7/blant-predict:v1")) {
+            if (!pullImageWithProgress("thealex7/blant-predict:v1", monitor)) {
                 throw new Exception("Failed to download Docker image. Check your internet connection.");
             }
-            executeCommand("docker tag thealex7/blant-predict:v1 flask-blant");
         } else {
             monitor.setStatusMessage("Analysis image found, skipping build.");
         }
@@ -155,6 +153,43 @@ public class DockerUtil extends AbstractTask {
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 System.err.println("[ERROR] Command failed with exit code " + exitCode);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean pullImageWithProgress(String image, TaskMonitor monitor) {
+        List<String> fullCmd = new ArrayList<>();
+        String pullCmd = "docker pull " + image;
+        if (isWin) {
+            fullCmd.addAll(List.of("cmd.exe", "/c", pullCmd));
+        } else {
+            fullCmd.addAll(List.of("sh", "-c", pullCmd));
+        }
+
+        try {
+            ProcessBuilder builder = new ProcessBuilder(fullCmd);
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[Docker Pull]: " + line);
+                    String trimmed = line.trim();
+                    if (!trimmed.isEmpty()) {
+                        monitor.setStatusMessage("Downloading: " + trimmed);
+                    }
+                }
+            }
+
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                System.err.println("[ERROR] docker pull failed with exit code " + exitCode);
                 return false;
             }
             return true;

@@ -1,5 +1,6 @@
 package com.blant.edgepredict.internal.task;
 
+import java.io.File;
 import java.lang.System.Logger.Level;
 import java.util.List;
 
@@ -39,8 +40,9 @@ public class PredictTaskManager {
     private final VisualMappingFunctionFactory vmfPassthrough;
     private final VisualStyleFactory vsFactory;
     private final DialogTaskManager dialogTaskManager;
+    private final Boolean isFile;
 
-    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, String projectName) {
+    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, String projectName, Boolean isFile) {
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
@@ -57,14 +59,17 @@ public class PredictTaskManager {
         this.vmfPassthrough = vmfPassthrough;
         this.vsFactory = vsFactory;
         this.dialogTaskManager = dialogTaskManager;
+        this.isFile = isFile;
     }
 
-public void run() {
+    public void run() {
         if (!BlantConfig.getOnline()) {
             dialogTaskManager.execute(new TaskIterator(new DockerUtil()), new org.cytoscape.work.TaskObserver() {
                 @Override
                 public void allFinished(org.cytoscape.work.FinishStatus finishStatus) {
-                    if (finishStatus.getType() == org.cytoscape.work.FinishStatus.Type.SUCCEEDED) task();
+                    if (finishStatus.getType() == org.cytoscape.work.FinishStatus.Type.SUCCEEDED) {
+                        task();
+                    }
                 }
                     @Override
                     public void taskFinished(org.cytoscape.work.ObservableTask task) {}
@@ -76,10 +81,9 @@ public void run() {
 
     private void task() {
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
-        logWindow.setVisible(true);
-
         SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
-        java.io.File file = sendTask.selectFile();
+        File file = sendTask.selectFile(this.isFile);
+        logWindow.setVisible(true);
 
         if (file == null) {
             logWindow.appendLog("[INFO] Send to BLANT cancelled by user.");
