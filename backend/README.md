@@ -6,21 +6,21 @@ docker info
 
 ### Build docker container
 ```
-docker build -t flask-blant .
+docker build -t blant-predict .
 ```
 
 #### **Important note for WSL users**: For allowing docker desktop into WSL terminal go to ```settings > resources > enable WSL integration``` and enable Ubuntu.
 
-### Run Flask Server on local host
+### Run BLANT-Predict Server on local host
 ```
-docker run -p 127.0.0.1:49161:5000 flask-blant  // bind to loop-back IP address
+docker run -p 127.0.0.1:49161:5000 blant-predict  // bind to loop-back IP address
 ```
 
 ##### NOTE: <local_host_port>:<internal_docker_port>
 
 ### To save job data to a path use a volume mount
 ```
-docker run -p 127.0.0.1:49161:5000 -v host/machine/job/dir:/app/jobs flask-blant
+docker run -p 127.0.0.1:49161:5000 -v host/machine/job/dir:/app/jobs blant-predict
 ```
 
 ### Docker Image Environment variables
@@ -28,7 +28,7 @@ The docker image uses the following environment variables to determine resources
 - WORKERS (default 1) 
 - THREADS (default 4)
 
-Set them with: ```docker run -e WORKERS=8 -e IP_ADDRESS="0.0.0.0" -p 49161:5000 -v host/machine/job/dir:/app/jobs flask-blant```
+Set them with: ```docker run -e WORKERS=8 -e IP_ADDRESS="0.0.0.0" -p 49161:5000 -v host/machine/job/dir:/app/jobs blant-predict```
 ### API Documentation
 ```
 <url_path>/blant

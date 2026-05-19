@@ -147,7 +147,6 @@ def checkProgress(job_id):
 def isValidFile(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
 
-# TODO: add ALL program parameters
 @app.route("/blant", methods=["POST"])
 def startBlant():
     if 'file' not in request.files:
@@ -166,26 +165,33 @@ def startBlant():
     sampling_method = request.args.get("method", default="EBE!").upper()
     isForced = request.args.get("force", default="0", type=str) # boolean
     isMock = request.args.get("mock", default="0", type=str) # boolean
-
-    ### TODO
-    # precision = request.args.get("precision", default="-1", type=str) # greater than 0
-    # num_samples = request.args.get("num_samples", default="-1", type=str) # greater than 0
-    # include_known = request.args.get("include_known", default="0", type=str) # boolean
-    ###
+    precision = request.args.get("precision", default="1.5", type=str) # digit of precision 
 
     if sampling_method not in VALID_SAMPLING_METHODS:
         return jsonify({"error": f"Not a valid sampling method. Valid sampling methods: MCMC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER"}), 400
 
-    if not k.isnumeric() or int(k) < 3 or int(k) > 8:
+    if not k.isdigit() or int(k) < 3 or int(k) > 8:
         return jsonify({"error": f"k must be integer in range [3,8]."}), 400
     
-    if not isForced.isnumeric():
+    if not isForced.isdigit():
         return jsonify({"error": f"force must be integer representation of a boolean."}), 400
+    
+    # if the precision param is invalid, won't throw error but will treat it as default precision
+    try:
+        if float(precision) <= 0:
+            precision = "1"
+        elif precision.isdigit():
+            precision = str(int(precision)) # get rid of leading 0's
+        else:
+            precision = str(float(precision))
+    except ValueError:
+        precision = "1"
     
     # extension includes "." (ex: .sif, .el, .txt), if no extension then empty str
     user_ext = "." + file.filename.rsplit('.', 1)[1].lower() if "." in file.filename else ""
 
-    job_id = get_checksum(file) # should be the checksum of the upload file
+    # should be the checksum of the upload file + params
+    job_id = get_checksum(file) + k + sampling_method + precision.replace(".", "-")
 
     ### Checking if job has already been computed can be done on frontend instead
     job_path = os.path.join(JOBS_FOLDER, job_id)
@@ -202,7 +208,7 @@ def startBlant():
 
     file.save(upload_path)
 
-    cleaned_base_name = file.filename.rsplit('.', 1)[0].lower().replace(".", "_") # just in case given weird file names
+    cleaned_base_name = "user_network" #file.filename.rsplit('.', 1)[0].lower().replace(".", "_") # just in case given weird file names
 
     job_data = {
         # "stderr_queue" : queue.Queue(),
@@ -219,7 +225,7 @@ def startBlant():
 
     thread = threading.Thread(
         target=run_blant,
-        args=(job_data_path, upload_path, stdout_path, stderr_path, k, sampling_method, isMock=="1")
+        args=(job_data_path, upload_path, stdout_path, stderr_path, k, sampling_method, precision, isMock=="1")
     )
     thread.start() # separate thread to continue handling other calls
 

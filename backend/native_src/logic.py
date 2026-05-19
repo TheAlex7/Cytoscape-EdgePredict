@@ -3,19 +3,22 @@ import hashlib
 import json
 import os
 
-def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampling_method = "EBE!", MOCK=False):
-    process_data = load_job_data(job_data_path)
+def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampling_method = "EBE!", precision = "1.5", MOCK=False):
+    job_data = load_job_data(job_data_path)
 
-    # if process_data.get("aborted"):
+    # if job_data.get("aborted"):
     #     return
 
-    process_data["finished"] = False
-    update_job_data(process_data, process_data["job_data_path"])
+    if not precision.isdigit(): 
+        precision = f"{float(precision)}"
+
+    job_data["finished"] = False
+    update_job_data(job_data, job_data["job_data_path"])
 
     if MOCK:
         COMMAND = ["bash", "./native_src/scripts/run_mock.sh", "./native_src/mock/syeast0_stderr_k4mcmc.txt", "./native_src/mock/syeast0_stdout_k4mcmc.txt"]
     else:
-        COMMAND = ["bash", "./src/EdgePredict/scripts/predict-edges-from-network.sh", "-s", sampling_method, input_path, k ]
+        COMMAND = ["bash", "./src/EdgePredict/scripts/predict-edges-from-network.sh", "-s", sampling_method, "-p", precision, input_path, k ]
     
     process = subprocess.Popen(
         COMMAND,
@@ -25,12 +28,12 @@ def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampli
         text=True,
         bufsize=1
     )
-    process_data["process"] = process
+    # job_data["process"] = process
 
     def stream_stderr():
         with open(stderr_path, "w") as f:
             for line in process.stderr:
-                # process_data["stderr_queue"].put(line) # streaming line # deprecated
+                # job_data["stderr_queue"].put(line) # streaming line # deprecated
                 f.write(line) # saving output
                 f.flush()
 
@@ -56,13 +59,13 @@ def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampli
     stdout_thread.join()
     process.wait()
 
-    if not os.path.isfile(process_data["stdout_path"]): #stdout doesn't exist = error happened
-        process_data["error"] = True
+    if not os.path.isfile(job_data["stdout_path"]): #stdout doesn't exist = error happened
+        job_data["error"] = True
     else:
-        process_data["finished"] = True
-    update_job_data(process_data, process_data["job_data_path"])
+        job_data["finished"] = True
+    update_job_data(job_data, job_data["job_data_path"])
 
-def get_checksum(file_storage, algorithm="sha256", chunk_size=65536):
+def get_checksum(file_storage, algorithm="sha256", chunk_size=65536) -> str:
     hasher = hashlib.new(algorithm)
     
     file_storage.seek(0) # Reset pointer
