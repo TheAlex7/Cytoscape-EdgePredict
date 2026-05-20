@@ -16,7 +16,6 @@ JOBS_FOLDER = "jobs"
 JOB_DATA_FILENAME = "job_data.json"
 os.makedirs(JOBS_FOLDER, exist_ok=True)
 
-# Store running jobs globally
 """
 # Jobs should be in this format:
 job_data = {
@@ -26,7 +25,7 @@ job_data = {
     "stdout_path": String,
     "stderr_path": String,
     "job_data_path": job_data_path,
-    "base_name": String
+    "file_format": String
 }
 """
 
@@ -37,7 +36,7 @@ def index():
 # error message for files exceeding the size limit
 @app.errorhandler(413)
 def fileTooLarge(error):
-    return jsonify({"error": "File is too large. Max limit is 1MB."}), 413
+    return jsonify({"error": "File is too large"}), 413 # No set file limit at the moment
 
 @app.route("/clear/<job_id>")
 def flushJob(job_id):
@@ -51,6 +50,7 @@ def flushJob(job_id):
     
     return jsonify({"message": "Successfully cleared specified job data."}), 200
 
+# TODO: save spot of last checked line + add param for returning whole file
 @app.route("/stderr/<job_id>")
 def getStderr(job_id):
     job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
@@ -75,7 +75,7 @@ def getStderr(job_id):
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f'{job_data["base_name"]}_stderr.txt',
+        download_name='user_network_stderr.txt',
         mimetype='text/plain'
     )
 
@@ -109,22 +109,20 @@ def getResult(job_id):
     if not job_data["finished"]:
         return jsonify({"error": "Job not done."}), 400
 
-    base_name = job_data["base_name"]
-
     buffer = io.BytesIO()
     with open(job_data["stdout_path"], "r", encoding="utf-8") as file:
         if raw_output == "1":
             buffer.write(file.read().encode("utf-8"))
         else:
             for line in file:
-                formatted_line = parse_line(line)
+                formatted_line = parse_line(line, job_data["file_format"])
                 buffer.write(formatted_line.encode("utf-8"))
     buffer.seek(0)
 
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f'{base_name}_blant_res.txt',
+        download_name='user_network_res.txt',
         mimetype='text/plain'
     )
 
@@ -144,9 +142,8 @@ def checkProgress(job_id):
 
     return jsonify({"progress": 1})
 
-def isValidFile(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in VALID_EXTENSIONS
-
+# TODO: job abort
+# TODO: Jobs should be grouped by checksum of input and subfolders are the unique param config (low priority)
 @app.route("/blant", methods=["POST"])
 def startBlant():
     if 'file' not in request.files:
@@ -157,8 +154,10 @@ def startBlant():
     if file.filename == '':
         return jsonify({"error": "No selected file."}), 400
 
+    file_format = extract_file_ext(file.filename)
+
     # file validation
-    if not isValidFile(file.filename):
+    if file_format not in VALID_EXTENSIONS:
         return jsonify({"error": f"Invalid file type. Allowed: {VALID_EXTENSIONS}"}), 400
 
     k = request.args.get("k", default="4", type=str)        # default k=4
@@ -188,7 +187,7 @@ def startBlant():
         precision = "1"
     
     # extension includes "." (ex: .sif, .el, .txt), if no extension then empty str
-    user_ext = "." + file.filename.rsplit('.', 1)[1].lower() if "." in file.filename else ""
+    user_ext = "." + file_format if file_format != "" else ""
 
     # should be the checksum of the upload file + params
     job_id = get_checksum(file) + k + sampling_method + precision.replace(".", "-")
@@ -208,8 +207,6 @@ def startBlant():
 
     file.save(upload_path)
 
-    cleaned_base_name = "user_network" #file.filename.rsplit('.', 1)[0].lower().replace(".", "_") # just in case given weird file names
-
     job_data = {
         # "stderr_queue" : queue.Queue(),
         "finished": False,
@@ -218,7 +215,7 @@ def startBlant():
         "stdout_path": stdout_path,
         "stderr_path": stderr_path,
         "job_data_path": job_data_path,
-        "base_name": cleaned_base_name
+        "file_format": file_format
     }
 
     update_job_data(job_data, job_data_path)

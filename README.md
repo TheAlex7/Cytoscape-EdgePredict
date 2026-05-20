@@ -40,7 +40,7 @@ Cytoscape will automatically install BLANT Prediction into your Cytoscape.
 #### Note
 BLANT Prediction will also save user input/output caches in `CytoscapeConfiguration\3\apps\BLANT` after running the task if the user agrees to save input and output.
 
-### Running Backend (Optional)
+### Running Backend Locally (Optional)
 The Cytoscape frontend connects to our publicly hosted Docker Image endpoints by default. We recommend sticking with our servers but if you need a way to run the program offline or want to use it on your own server, you may do this by pulling [our Docker image](https://hub.docker.com/r/thealex7/blant-predict) from DockerHub.
 
 **Prerequisite:** Must have [Docker](https://docs.docker.com/get-started/get-docker/) installed
@@ -54,27 +54,32 @@ docker info
 
 #### Pull our Docker Image
 ```
-docker pull thealex7/blant-predict:v1
+docker pull thealex7/blant-predict
 ```
 
 #### Run BLANT-Predict Server on local host (or any address+port)
 ```
-docker run -p 127.0.0.1:49161:5000 thealex7/blant-predict:v1
+docker run -p 127.0.0.1:49161:5000 thealex7/blant-predict
 ```
 
 ##### **NOTE:** <host_machine_port>:<internal_docker_port>
 
-#### To save job data to a path use a volume mount
+#### To save job data and/or support SSL (HTTPS), use volume mounts
 ```
-docker run -p 127.0.0.1:49161:5000 -v host/machine/job/dir:/app/jobs thealex7/blant-predict:v1
+docker run -p 127.0.0.1:49161:5000 \
+    -v /path/to/local/jobs:/app/jobs \
+    -v /path/to/local/keys:/app/keys \
+    thealex7/blant-predict
 ```
+
+##### **NOTE:** keyfile and certfile must be in the same directory and named `key.pem` and `cert.pem` respectively
 
 ## API Documentation
 ```
 <url_path>/blant
 ```
 - **Description**: Accepts graph file to start a new BLANT job. The job_id is calculated as the sha256 checksum of the input file and then returned.
-- **query params** ```k```, ```sampling_method``` (Note: sampling method is not validated so can cause error if not valid for blant. Other blant parameters still in progress.)
+- **query params** `k`, `sampling_method`, `precision`
 - **request body** ```file```
 - **returns** ```string``` 
 

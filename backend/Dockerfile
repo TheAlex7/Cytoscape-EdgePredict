@@ -34,11 +34,11 @@ EXPOSE 5000
 # production
 # CMD ["sh", "-c", "exec gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000"]
 
-# If a keys dir was mounted as a  volume then it will use the key files as such for https 
-CMD ["/bin/sh", "-c", "if [ -d '/keys' ]; then \
-    gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000 --keyfile /keys/key.pem --certfile /keys/crt.pem; \
+# If gunicorn finds the key and cert from the mount, it will use https, http otherwise
+CMD ["/bin/sh", "-c", "if [ -d '/app/keys' ]; then \
+    gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000 --keyfile /app/keys/key.pem --certfile /app/keys/cert.pem; \
     else \
-    gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000; fi"]
+    gunicorn --workers=$WORKERS --threads=$THREADS --access-logfile - server:app -b 0.0.0.0:5000 ; fi"]
 
 # development
 # CMD ["python", "server.py"]
