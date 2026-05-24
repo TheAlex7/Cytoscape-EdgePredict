@@ -2,6 +2,7 @@ package com.blant.edgepredict.internal.util;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -49,8 +50,8 @@ public class BlantPoller {
                         conn.setConnectTimeout(2000);
                         conn.setReadTimeout(2000);
 
-                        int statusCode = conn.getResponseCode();
-                        if (statusCode == 200) {
+                        int responseCode = conn.getResponseCode();
+                        if (responseCode == 200) {
                             retryCount = 0;
                             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
                             StringBuilder sb = new StringBuilder();
@@ -72,13 +73,16 @@ public class BlantPoller {
                                 publish("[WARN] Could not parse progress from response: " + response);
                             }
                         } else {
-                            java.io.InputStream errStream = conn.getErrorStream();
-                            String errorBody = errStream != null
-                                    ? new String(errStream.readAllBytes(), StandardCharsets.UTF_8)
-                                    : "(no body)";
-                            publish("[ERROR] Polling stopped — server returned HTTP " + statusCode + ": " + errorBody);
-                            BlantConfig.setAborted(true);
-                            return null;
+                            InputStream errStream = conn.getErrorStream();
+                            if (errStream != null) {
+                                BufferedReader errReader = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8));
+                                StringBuilder errSb = new StringBuilder();
+                                String errLine;
+                                while ((errLine = errReader.readLine()) != null) errSb.append(errLine);
+                                publish("[ERROR] Server returned HTTP " + responseCode + ": " + errSb.toString());
+                            } else {
+                                publish("[ERROR] Server returned HTTP " + responseCode);
+                            }
                         }
                         Thread.sleep(5000); // Poll every 5 second
                     } catch (Exception e) {

@@ -132,7 +132,13 @@ public class SendToBlant {
                     this.logWindow.appendLog("[ERROR] Server returned HTTP " + status + " with no response body.");
                     return false;
                 }
-                String responseText = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
+                String responseText;
+                try {
+                    responseText = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
+                } catch (Exception ex) {
+                    this.logWindow.appendLog("[ERROR] Failed to read server response: " + ex.getMessage());
+                    return false;
+                }
 
                 Matcher m = JOB_ID_PATTERN.matcher(responseText);
                 if (!m.find()) {
@@ -189,9 +195,14 @@ public class SendToBlant {
                 }
             }
 
-            String errorBody = responseStream != null
-                    ? new String(responseStream.readAllBytes(), StandardCharsets.UTF_8)
-                    : "(no body)";
+            String errorBody;
+            try {
+                errorBody = responseStream != null
+                        ? new String(responseStream.readAllBytes(), StandardCharsets.UTF_8)
+                        : "(no body)";
+            } catch (Exception ex) {
+                errorBody = "(failed to read response body)";
+            }
             this.logWindow.appendLog("[ERROR] Server returned HTTP " + status + ": " + errorBody);
             return false;
 

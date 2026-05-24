@@ -102,11 +102,11 @@ public class ConfidenceFilterPanel extends JPanel {
         add(Box.createVerticalStrut(6));
         add(confidenceSlider);
         add(Box.createVerticalStrut(4));
+        add(buildColorLegend());
+        add(Box.createVerticalStrut(6));
         add(showOriginalChk);
         add(Box.createVerticalStrut(2));
         add(hideUnpredictedChk);
-        add(Box.createVerticalStrut(4));
-        add(buildColorLegend());
     }
 
     public void setScoreRange(double min, double max, CyNetworkView view) {
@@ -208,6 +208,15 @@ public class ConfidenceFilterPanel extends JPanel {
         });
 
         view.updateView();
+    }
+
+    public double getCurrentThreshold() {
+        double fraction = (double) confidenceSlider.getValue() / SLIDER_SCALE;
+        return scoreMin + fraction * (scoreMax - scoreMin);
+    }
+
+    public boolean isSliderEnabled() {
+        return confidenceSlider.isEnabled();
     }
 
     private JPanel buildColorLegend() {
