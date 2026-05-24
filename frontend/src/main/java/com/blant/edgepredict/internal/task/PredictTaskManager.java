@@ -93,35 +93,34 @@ public class PredictTaskManager {
         new Thread(() -> {
             try {
                 boolean status = sendTask.send(file);
-                if (!status && BlantConfig.getLoad()) {
-                    status = sendTask.send(file);
-                }
                 
                 if (status) {
                     BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), () -> {
                         if (!BlantConfig.getAborted()) {
-                            try {
-                                new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
-                                String savedJobId = BlantConfig.getJobId();
-                                if (savedJobId != null && projectName != null && !projectName.isBlank()) {
-                                    String existing = ProjectStore.getNameByJobId(savedJobId);
-                                    if (existing != null) {
-                                        logWindow.appendLog("[INFO] This job is already saved locally as \"" + existing + "\" — not creating a duplicate.");
-                                    } else {
-                                        ProjectStore.saveProject(projectName, savedJobId);
-                                        java.io.File inputFile = BlantConfig.getInputFile();
-                                        if (inputFile != null) {
-                                            ProjectStore.saveInputFile(savedJobId, inputFile);
+                            new Thread(() -> {
+                                try {
+                                    new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
+                                    String savedJobId = BlantConfig.getJobId();
+                                    if (savedJobId != null && projectName != null && !projectName.isBlank()) {
+                                        String existing = ProjectStore.getNameByJobId(savedJobId);
+                                        if (existing != null) {
+                                            logWindow.appendLog("[INFO] This job is already saved locally as \"" + existing + "\" — not creating a duplicate.");
+                                        } else {
+                                            ProjectStore.saveProject(projectName, savedJobId);
+                                            java.io.File inputFile = BlantConfig.getInputFile();
+                                            if (inputFile != null) {
+                                                ProjectStore.saveInputFile(savedJobId, inputFile);
+                                            }
+                                            logWindow.appendLog("[INFO] Project saved: \"" + projectName + "\"");
+                                            ProjectsDashboard.refreshIfOpen();
                                         }
-                                        logWindow.appendLog("[INFO] Project saved: \"" + projectName + "\"");
-                                        ProjectsDashboard.refreshIfOpen();
                                     }
+                                } catch (Exception ex) {
+                                    System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
+                                } finally {
+                                    cleanupResources();
                                 }
-                            } catch (Exception ex) {
-                                System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
-                            } finally {
-                                cleanupResources();
-                            }
+                            }).start();
                         } else {
                             cleanupResources();
                         }

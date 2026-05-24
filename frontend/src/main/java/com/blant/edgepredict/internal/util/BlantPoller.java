@@ -35,6 +35,7 @@ public class BlantPoller {
     }
 
     public void startPolling(final String jobId, final PollingCallback callback) {
+        BlantLogWindow.getInstance().setAbortBtnEnabled(true);
         this.poller = new SwingWorker<Void, String>() {
             private int retryCount = 0;
 
@@ -48,7 +49,8 @@ public class BlantPoller {
                         conn.setConnectTimeout(2000);
                         conn.setReadTimeout(2000);
 
-                        if (conn.getResponseCode() == 200) {
+                        int statusCode = conn.getResponseCode();
+                        if (statusCode == 200) {
                             retryCount = 0;
                             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
                             StringBuilder sb = new StringBuilder();
@@ -69,6 +71,14 @@ public class BlantPoller {
                             } else {
                                 publish("[WARN] Could not parse progress from response: " + response);
                             }
+                        } else {
+                            java.io.InputStream errStream = conn.getErrorStream();
+                            String errorBody = errStream != null
+                                    ? new String(errStream.readAllBytes(), StandardCharsets.UTF_8)
+                                    : "(no body)";
+                            publish("[ERROR] Polling stopped — server returned HTTP " + statusCode + ": " + errorBody);
+                            BlantConfig.setAborted(true);
+                            return null;
                         }
                         Thread.sleep(5000); // Poll every 5 second
                     } catch (Exception e) {
@@ -94,6 +104,7 @@ public class BlantPoller {
 
             @Override
             public void done() {
+                BlantLogWindow.getInstance().setAbortBtnEnabled(false);
                 callback.onComplete();
             }
         };

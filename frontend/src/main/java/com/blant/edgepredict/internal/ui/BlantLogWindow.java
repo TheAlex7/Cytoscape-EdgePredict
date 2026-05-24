@@ -55,6 +55,7 @@ public class BlantLogWindow extends JFrame {
       });
 
       this.abortBtn = new JButton("Stop Task");
+      this.abortBtn.setEnabled(false);
       this.abortBtn.addActionListener((e) -> {
          if (BlantPoller.getInstance().isPolling()) {
             BlantConfig.setAborted(true);
@@ -73,7 +74,6 @@ public class BlantLogWindow extends JFrame {
       this.pack();
       this.setLocationRelativeTo((Component)null);
       this.setDefaultCloseOperation(2);
-      this.setAlwaysOnTop(true);
       this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
    }
 

@@ -134,7 +134,6 @@ public class NavDashboard extends JFrame {
         this.pack();
         this.setLocationRelativeTo((Component) null);
         this.setResizable(false);
-        this.setAlwaysOnTop(true);
         this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
         this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
@@ -269,7 +268,7 @@ public class NavDashboard extends JFrame {
     }
 
     private JPanel savePanel() {
-        JPanel panel = new JPanel(new GridLayout(2, 0));
+        JPanel panel = new JPanel(new GridLayout(3, 0));
         JCheckBox chkSave = new JCheckBox("Save the input and the result");
         chkSave.setSelected(true);
         chkSave.addActionListener(e -> this.isSaved = chkSave.isSelected());
@@ -277,8 +276,13 @@ public class NavDashboard extends JFrame {
         chkOnline.setSelected(true);
         chkOnline.addActionListener(e -> BlantConfig.setOnline(chkOnline.isSelected()));
         chkOnline.setPreferredSize(new Dimension(120, 25));
+        JCheckBox chkForce = new JCheckBox("Force Mode");
+        chkForce.setSelected(false);
+        chkForce.addActionListener(e -> BlantConfig.setForce(chkForce.isSelected()));
+        chkForce.setPreferredSize(new Dimension(120, 25));
         panel.add(chkSave);
         panel.add(chkOnline);
+        panel.add(chkForce);
         return panel;
     }
 

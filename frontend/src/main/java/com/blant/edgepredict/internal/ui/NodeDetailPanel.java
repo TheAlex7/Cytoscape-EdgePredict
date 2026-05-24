@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -26,6 +27,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyIdentifiable;
@@ -166,7 +168,6 @@ public class NodeDetailPanel extends JDialog {
 
         pack();
         setResizable(false);
-        setAlwaysOnTop(true);
         setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         Point mouse = MouseInfo.getPointerInfo().getLocation();
         setLocation(mouse.x + 12, mouse.y + 12);

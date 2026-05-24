@@ -11,6 +11,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -19,6 +20,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.SwingUtilities;
+
 import org.cytoscape.application.CyApplicationManager;
 import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyIdentifiable;
@@ -86,7 +88,6 @@ public class EdgeDetailPanel extends JDialog {
       this.add(footer, "South");
       this.pack();
       this.setResizable(false);
-      this.setAlwaysOnTop(true);
       this.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
       Point mouse = MouseInfo.getPointerInfo().getLocation();
       this.setLocation(mouse.x + 12, mouse.y + 12);

@@ -74,10 +74,10 @@ public class DockerUtil extends AbstractTask {
         // 2. Download image if not exists
         monitor.setStatusMessage("Checking for analysis image...");
         monitor.setProgress(0.3);
-        boolean imageExists = executeCommand("docker image inspect thealex7/blant-predict:v1");
+        boolean imageExists = executeCommand("docker image inspect thealex7/blant-predict");
         if (!imageExists) {
             monitor.setStatusMessage("Downloading analysis engine. This may take a few minutes ...");
-            if (!pullImageWithProgress("thealex7/blant-predict:v1", monitor)) {
+            if (!pullImageWithProgress("thealex7/blant-predict", monitor)) {
                 throw new Exception("Failed to download Docker image. Check your internet connection.");
             }
         } else {
@@ -91,7 +91,7 @@ public class DockerUtil extends AbstractTask {
         if (!executeCommand("docker start blant-svc")) {
             monitor.setStatusMessage("Container not found, creating new container...");
             monitor.setProgress(0.8);
-            if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 flask-blant")) {
+            if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 thealex7/blant-predict")) {
                 throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
             }
         }
