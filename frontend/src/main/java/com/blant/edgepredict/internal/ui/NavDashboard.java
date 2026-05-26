@@ -60,7 +60,7 @@ public class NavDashboard extends JFrame {
     private final DialogTaskManager dialogTaskManager;
 
     private String sampleMethod;
-    private double precisionDigits;
+    private double precisionDigits = 1.0;
     private List<String> kVal = new ArrayList<>();
     private String graphType = "Undirected";
     private boolean isSaved = true;
@@ -68,6 +68,7 @@ public class NavDashboard extends JFrame {
     private final JPanel kValPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
     private final ConfidenceFilterPanel filterPanel;
     private JSlider precisionSlider;
+    private Boolean isFile = false;
 
     private NavDashboard(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {
         super("BLANT Navigation Controller");
@@ -93,15 +94,19 @@ public class NavDashboard extends JFrame {
         this.add(this.advancedPanel(), BorderLayout.CENTER);
         this.add(this.filterPanel, BorderLayout.NORTH);
 
-        JButton logBtn = new JButton("BLANT Log");
+        JButton logBtn = new JButton("Open Log");
         logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
         logBtn.setPreferredSize(new Dimension(120, 25));
 
-        JButton closePopupsBtn = new JButton("Close All Popups");
+        JButton closePopupsBtn = new JButton("Close Popups");
         closePopupsBtn.addActionListener(e -> { EdgeDetailPanel.closeAll(); NodeDetailPanel.closeAll(); });
         closePopupsBtn.setPreferredSize(new Dimension(120, 25));
 
-        JButton sendBtn = new JButton("Send to BLANT");
+        JButton projectsBtn = new JButton("My Projects");
+        projectsBtn.addActionListener(e -> ProjectsDashboard.getInstance(networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory));
+        projectsBtn.setPreferredSize(new Dimension(120, 25));
+
+        JButton sendBtn = new JButton("Run");
         sendBtn.addActionListener(e -> {
             this.kVal.clear();
              for (Checkbox cb : kValCheckboxes) {
@@ -109,10 +114,12 @@ public class NavDashboard extends JFrame {
                     this.kVal.add(cb.getLabel());
                 }
             }
+            String projectName = askForUniqueName();
+            if (projectName == null) return;
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, projectName, this.isFile).run();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(NavDashboard.this, "Send to BLANT failed: " + ex.getMessage());
+                JOptionPane.showMessageDialog(NavDashboard.this, "Predict task failed: " + ex.getMessage());
             }
         });
         sendBtn.setPreferredSize(new Dimension(120, 25));
@@ -120,6 +127,7 @@ public class NavDashboard extends JFrame {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.add(logBtn);
         buttonPanel.add(closePopupsBtn);
+        buttonPanel.add(projectsBtn);
         buttonPanel.add(sendBtn);
         this.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -127,7 +135,7 @@ public class NavDashboard extends JFrame {
         this.setLocationRelativeTo((Component) null);
         this.setResizable(false);
         this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
-        this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        this.setDefaultCloseOperation(HIDE_ON_CLOSE);
     }
 
     private JPanel advancedPanel() {
@@ -216,7 +224,8 @@ public class NavDashboard extends JFrame {
     private JPanel graphTypePanel() {
         JPanel panel = new JPanel(new GridLayout(2, 1));
         JLabel label = new JLabel("Graph Type");
-        String[] types = {"Undirected", "Directed"};
+        // String[] types = {"Undirected", "Directed"};
+        String[] types = {"Undirected"};
         JComboBox<String> combo = new JComboBox<>(types);
         combo.addActionListener(e -> {
             this.graphType = (String) combo.getSelectedItem(); 
@@ -250,6 +259,7 @@ public class NavDashboard extends JFrame {
             this.kValCheckboxes.add(cb);
             this.kValPanel.add(cb);
         }
+        kValCheckboxes.get(0).setState(true);
 
         outerPanel.add(new JLabel("K-values"));
         outerPanel.add(this.kValPanel);
@@ -258,7 +268,7 @@ public class NavDashboard extends JFrame {
     }
 
     private JPanel savePanel() {
-        JPanel panel = new JPanel(new GridLayout(2, 0));
+        JPanel panel = new JPanel(new GridLayout(3, 0));
         JCheckBox chkSave = new JCheckBox("Save the input and the result");
         chkSave.setSelected(true);
         chkSave.addActionListener(e -> this.isSaved = chkSave.isSelected());
@@ -266,9 +276,28 @@ public class NavDashboard extends JFrame {
         chkOnline.setSelected(true);
         chkOnline.addActionListener(e -> BlantConfig.setOnline(chkOnline.isSelected()));
         chkOnline.setPreferredSize(new Dimension(120, 25));
+        JCheckBox chkForce = new JCheckBox("Force Mode");
+        chkForce.setSelected(false);
+        chkForce.addActionListener(e -> BlantConfig.setForce(chkForce.isSelected()));
+        chkForce.setPreferredSize(new Dimension(120, 25));
         panel.add(chkSave);
         panel.add(chkOnline);
+        panel.add(chkForce);
         return panel;
+    }
+
+    private String askForUniqueName() {
+        while (true) {
+            String name = ProjectNameDialog.show(this);
+            if (name == null) return null;
+            if (com.blant.edgepredict.internal.util.ProjectStore.getProjects().containsKey(name)) {
+                JOptionPane.showMessageDialog(this,
+                    "A project named \"" + name + "\" already exists. Please choose a different name.",
+                    "Name Already Used", JOptionPane.WARNING_MESSAGE);
+            } else {
+                return name;
+            }
+        }
     }
 
     public void setScoreRange(double min, double max, CyNetworkView view) {
@@ -277,6 +306,16 @@ public class NavDashboard extends JFrame {
 
     public static NavDashboard getExistingInstance() {
         return instance;
+    }
+
+    public static double getCurrentThreshold() {
+        if (instance == null || !instance.isDisplayable()) return 0.0;
+        return instance.filterPanel.getCurrentThreshold();
+    }
+
+    public static boolean isFilterEnabled() {
+        if (instance == null || !instance.isDisplayable()) return false;
+        return instance.filterPanel.isSliderEnabled();
     }
 
     public static NavDashboard getInstance(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {

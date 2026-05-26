@@ -28,7 +28,7 @@ import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.CacheUtil;
 
 public class SendToBlant {
-    private static final Pattern JOB_ID_PATTERN = Pattern.compile("\"job_id\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern JOB_ID_PATTERN = Pattern.compile("\"job(?:_id|ID)\"\\s*:\\s*\"([^\"]+)\"");
 
     private final FileUtil fileUtil;
     private final CyNetworkFactory networkFactory;
@@ -54,9 +54,22 @@ public class SendToBlant {
         this.isSaved = isSaved;
     }
 
-    public File selectFile() {
-        FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
-        return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+    public File selectFile(Boolean isFile) {
+        if (isFile) {
+            FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
+            return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+        }
+        else {
+            ExportGraph exportGraph = ExportGraph.getInstance();
+            try {
+                return exportGraph.ExportCurrentGraph(new org.cytoscape.work.TaskMonitor() {
+                public void setTitle(String s) {} public void setProgress(double p) {}
+                public void setStatusMessage(String s) {} public void showMessage(org.cytoscape.work.TaskMonitor.Level l, String s) {}});
+            } catch (Exception e) {
+                this.logWindow.appendLog("[ERROR] Failed to export current graph: " + e.getMessage());
+                return null;
+            }
+        }
     }
 
     public boolean send(File file) throws Exception {
@@ -71,12 +84,14 @@ public class SendToBlant {
         this.logWindow.appendLog("[INFO] BLANT server selected: " + (BlantConfig.isOnline ? "Online" : "Local"));
         this.logWindow.appendLog("[INFO] Sending to BLANT...");
 
+        return doSend(file, BlantConfig.getForce());
+    }
+
+    private boolean doSend(File file, boolean force) throws Exception {
         try {
-            // Generate multipart/form-data request body manually
             String boundary = UUID.randomUUID().toString();
             String LINE_FEED = "\r\n";
 
-            // Input File
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             String headers = "--" + boundary + LINE_FEED
                     + "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + LINE_FEED
@@ -84,14 +99,15 @@ public class SendToBlant {
             baos.write(headers.getBytes(StandardCharsets.UTF_8));
             baos.write(Files.readAllBytes(file.toPath()));
             baos.write((LINE_FEED + "--" + boundary + "--" + LINE_FEED).getBytes(StandardCharsets.UTF_8));
+
             String kParam = this.kVal.isEmpty() ? "4" : this.kVal.get(0);
             String method = this.sampleMethod == null ? "MCMC" : this.sampleMethod.replaceAll("\\s*\\(.*\\)$", "").trim();
-            
+
             String queryParams = "?k=" + kParam + "&method=" + method + "&precision=" + this.precisionDigits;
-            if (BlantConfig.getLoad()) {
+            if (force) {
                 queryParams += "&force=1";
-                BlantConfig.setLoad(false);
             }
+
             URL url = new URL(BlantConfig.getSubmitUrl() + queryParams);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
@@ -111,14 +127,19 @@ public class SendToBlant {
                     ? conn.getInputStream()
                     : conn.getErrorStream();
 
-            if (responseStream == null) {
-                this.logWindow.appendLog("[ERROR] Server returned HTTP " + status + " with no response body.");
-                return false;
-            }
-
-            String responseText = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
-
             if (status == 200 || status == 409) {
+                if (responseStream == null) {
+                    this.logWindow.appendLog("[ERROR] Server returned HTTP " + status + " with no response body.");
+                    return false;
+                }
+                String responseText;
+                try {
+                    responseText = new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
+                } catch (Exception ex) {
+                    this.logWindow.appendLog("[ERROR] Failed to read server response: " + ex.getMessage());
+                    return false;
+                }
+
                 Matcher m = JOB_ID_PATTERN.matcher(responseText);
                 if (!m.find()) {
                     this.logWindow.appendLog("[ERROR] Could not extract job_id from response: " + responseText);
@@ -129,24 +150,65 @@ public class SendToBlant {
                 this.logWindow.appendLog("[INFO] Job ID: " + jobId);
 
                 if (status == 200) {
-                this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
+                    this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
                     if (this.isSaved) {
                         this.logWindow.appendLog(CacheUtil.saveInput(jobId, new String(baos.toByteArray(), StandardCharsets.UTF_8)));
                     }
                     return true;
                 } else {
-                    this.logWindow.appendLog("[Info] " + status + ": " + responseText);
-                    responseText = CacheUtil.getOutput(jobId);
-                    BlantConfig.setLoad(true);
+                    // HTTP 409: job already exists on server
+                    this.logWindow.appendLog("[INFO] 409: Job already exists on server.");
 
-                    return !responseText.contains("ERROR");
+                    // 1. Check local cache
+                    String cached = CacheUtil.getOutput(jobId);
+                    if (!cached.startsWith("[ERROR]")) {
+                        this.logWindow.appendLog("[INFO] Loaded result from local cache.");
+                        return true;
+                    }
+
+                    // 2. Try server cache
+                    this.logWindow.appendLog("[INFO] No local cache — checking server cache...");
+                    try {
+                        URL resultUrl = new URL(BlantConfig.getResultUrl() + jobId);
+                        HttpURLConnection resultConn = (HttpURLConnection) resultUrl.openConnection();
+                        resultConn.setRequestMethod("GET");
+                        int resultStatus = resultConn.getResponseCode();
+                        if (resultStatus == 200) {
+                            cached = new String(resultConn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                            this.logWindow.appendLog(CacheUtil.saveOutput(jobId, cached));
+                            this.logWindow.appendLog("[INFO] Result downloaded from server cache.");
+                            return true;
+                        } else {
+                            this.logWindow.appendLog("[WARN] Server cache returned HTTP " + resultStatus + ".");
+                        }
+                    } catch (Exception downloadEx) {
+                        this.logWindow.appendLog("[WARN] Could not reach server cache: " + downloadEx.getMessage());
+                    }
+
+                    // 3. Auto-retry with force
+                    if (!force) {
+                        this.logWindow.appendLog("[INFO] Retrying with force...");
+                        return doSend(file, true);
+                    }
+                    this.logWindow.appendLog("[ERROR] Server returned 409 even with force. Aborting.");
+                    return false;
                 }
             }
+
+            String errorBody;
+            try {
+                errorBody = responseStream != null
+                        ? new String(responseStream.readAllBytes(), StandardCharsets.UTF_8)
+                        : "(no body)";
+            } catch (Exception ex) {
+                errorBody = "(failed to read response body)";
+            }
+            this.logWindow.appendLog("[ERROR] Server returned HTTP " + status + ": " + errorBody);
+            return false;
+
         } catch (Exception ex) {
             this.logWindow.appendLog("[ERROR] Exception: " + ex.getMessage());
             throw ex;
         }
-
-        return false;
     }
 }

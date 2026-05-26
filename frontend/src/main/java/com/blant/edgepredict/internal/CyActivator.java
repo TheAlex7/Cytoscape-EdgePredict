@@ -8,6 +8,7 @@ import org.cytoscape.application.swing.CySwingApplication;
 import org.cytoscape.io.write.CyNetworkViewWriterManager;
 import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
+import org.cytoscape.model.events.RowsSetListener;
 import org.cytoscape.service.util.AbstractCyActivator;
 import org.cytoscape.util.swing.FileUtil;
 import org.cytoscape.view.layout.CyLayoutAlgorithmManager;
@@ -20,8 +21,11 @@ import org.cytoscape.work.TaskManager;
 import org.cytoscape.work.swing.DialogTaskManager;
 import org.osgi.framework.BundleContext;
 
+import com.blant.edgepredict.internal.task.ExportGraph;
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
+import com.blant.edgepredict.internal.ui.EdgeDetailPanel;
 import com.blant.edgepredict.internal.ui.MenuAction;
+import com.blant.edgepredict.internal.ui.NodeDetailPanel;
 
 public class CyActivator extends AbstractCyActivator {
 
@@ -41,6 +45,7 @@ public class CyActivator extends AbstractCyActivator {
         DialogTaskManager dialogTaskManager = getService(bc, DialogTaskManager.class);
         CySwingApplication swingApp = getService(bc, CySwingApplication.class);
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
+        ExportGraph.setInstance(appManager, writerManager);
 
         // Two VMF factories: one for discrete mappings, one for passthrough
         VisualMappingFunctionFactory vmfDiscrete =
@@ -57,5 +62,13 @@ public class CyActivator extends AbstractCyActivator {
                 layoutManager, dialogTaskManager);
 
         registerService(bc, menuAction, CyAction.class, new Properties());
+
+        registerService(bc,
+                new EdgeDetailPanel.EdgeSelectionListener(appManager),
+                RowsSetListener.class, new Properties());
+
+        registerService(bc,
+                new NodeDetailPanel.NodeSelectionListener(appManager),
+                RowsSetListener.class, new Properties());
     }
 }

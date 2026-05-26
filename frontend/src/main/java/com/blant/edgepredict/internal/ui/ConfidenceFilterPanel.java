@@ -17,8 +17,10 @@ import javax.swing.JTextField;
 import javax.swing.event.ChangeListener;
 
 import org.cytoscape.application.CyApplicationManager;
+import org.cytoscape.model.CyEdge;
 import org.cytoscape.model.CyIdentifiable;
 import org.cytoscape.model.CyNetwork;
+import org.cytoscape.model.CyNode;
 import org.cytoscape.model.CyRow;
 import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.presentation.property.BasicVisualLexicon;
@@ -34,9 +36,11 @@ public class ConfidenceFilterPanel extends JPanel {
     private JLabel sliderLabel;
     private JLabel sliderRangeLabel;
     private JCheckBox showOriginalChk;
+    private JCheckBox hideUnpredictedChk;
     private double scoreMin = 0.0;
     private double scoreMax = 1.0;
     private boolean showOriginalEdges = false;
+    private boolean hideNodesWithoutPredicted = false;
     private ChangeListener sliderChangeListener;
     private CyNetworkView activeView;
 
@@ -84,6 +88,12 @@ public class ConfidenceFilterPanel extends JPanel {
             applyThreshold();
         });
 
+        hideUnpredictedChk = new JCheckBox("Hide nodes without predicted edges", false);
+        hideUnpredictedChk.addActionListener(e -> {
+            hideNodesWithoutPredicted = hideUnpredictedChk.isSelected();
+            applyThreshold();
+        });
+
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBorder(BorderFactory.createTitledBorder("Edge Confidence Filter"));
         add(thresholdRow);
@@ -92,9 +102,11 @@ public class ConfidenceFilterPanel extends JPanel {
         add(Box.createVerticalStrut(6));
         add(confidenceSlider);
         add(Box.createVerticalStrut(4));
-        add(showOriginalChk);
-        add(Box.createVerticalStrut(4));
         add(buildColorLegend());
+        add(Box.createVerticalStrut(6));
+        add(showOriginalChk);
+        add(Box.createVerticalStrut(2));
+        add(hideUnpredictedChk);
     }
 
     public void setScoreRange(double min, double max, CyNetworkView view) {
@@ -113,6 +125,8 @@ public class ConfidenceFilterPanel extends JPanel {
         activeView = view;
         showOriginalEdges = false;
         showOriginalChk.setSelected(false);
+        hideNodesWithoutPredicted = false;
+        hideUnpredictedChk.setSelected(false);
 
         confidenceSlider.removeChangeListener(sliderChangeListener);
         confidenceSlider.setEnabled(false);
@@ -179,7 +193,30 @@ public class ConfidenceFilterPanel extends JPanel {
                 }
             }
         });
+
+        view.getNodeViews().forEach(nv -> {
+            CyNode node = (CyNode) nv.getModel();
+            boolean hasPredictedAboveThreshold = network.getAdjacentEdgeList(node, CyEdge.Type.ANY)
+                    .stream()
+                    .anyMatch(e -> {
+                        CyRow er = network.getRow(e);
+                        if (!"predicted".equals(er.get("interaction", String.class))) return false;
+                        Double score = er.get("confidence_score", Double.class);
+                        return score != null && score >= threshold;
+                    });
+            nv.setLockedValue(BasicVisualLexicon.NODE_VISIBLE, !hideNodesWithoutPredicted || hasPredictedAboveThreshold);
+        });
+
         view.updateView();
+    }
+
+    public double getCurrentThreshold() {
+        double fraction = (double) confidenceSlider.getValue() / SLIDER_SCALE;
+        return scoreMin + fraction * (scoreMax - scoreMin);
+    }
+
+    public boolean isSliderEnabled() {
+        return confidenceSlider.isEnabled();
     }
 
     private JPanel buildColorLegend() {

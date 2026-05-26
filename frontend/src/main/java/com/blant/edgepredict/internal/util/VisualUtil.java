@@ -1,12 +1,12 @@
 package com.blant.edgepredict.internal.util;
 
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Paint;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -76,12 +76,18 @@ public class VisualUtil {
       }
 
       SwingUtilities.invokeLater(() -> {
-         String[] columnNames = new String[]{"Source", "Interaction", "Target", "Confident Score"};
+         String[] columnNames = new String[]{"Source", "Target", "Confident Score", "Orbit Pair"};
          String[][] data = (String[][])edgeList.toArray(new String[0][]);
          JTable table = new JTable(data, columnNames);
+         table.setAutoCreateRowSorter(true);
+
          JScrollPane scrollPane = new JScrollPane(table);
          scrollPane.setPreferredSize(new Dimension(500, 400));
-         JOptionPane.showMessageDialog((Component)null, scrollPane, "Array Data Viewer", -1);
+         
+         JOptionPane optionPane = new JOptionPane(scrollPane, JOptionPane.PLAIN_MESSAGE);
+         JDialog dialog = optionPane.createDialog(null, "Array Data Viewer");
+         dialog.setModal(false); 
+         dialog.setVisible(true);
       });
    }
 

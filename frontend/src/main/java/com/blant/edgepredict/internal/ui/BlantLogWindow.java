@@ -33,6 +33,8 @@ public class BlantLogWindow extends JFrame {
       this.logArea.setBackground(Color.BLACK);
       this.logArea.setForeground(Color.GREEN);
       this.logArea.setMargin(new Insets(5, 5, 5, 5));
+      this.logArea.setLineWrap(true);
+      this.logArea.setWrapStyleWord(true);
 
       JScrollPane scrollPane = new JScrollPane(this.logArea);
       scrollPane.setPreferredSize(new Dimension(600, 400));
@@ -53,6 +55,7 @@ public class BlantLogWindow extends JFrame {
       });
 
       this.abortBtn = new JButton("Stop Task");
+      this.abortBtn.setEnabled(false);
       this.abortBtn.addActionListener((e) -> {
          if (BlantPoller.getInstance().isPolling()) {
             BlantConfig.setAborted(true);
@@ -71,6 +74,7 @@ public class BlantLogWindow extends JFrame {
       this.pack();
       this.setLocationRelativeTo((Component)null);
       this.setDefaultCloseOperation(2);
+      this.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
    }
 
    public static BlantLogWindow getInstance() {
