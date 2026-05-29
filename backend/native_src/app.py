@@ -5,6 +5,8 @@ import threading
 import os
 from native_src.logic import *
 import shutil
+# from timeout_decorator import timeout
+import time
 # import uuid
 
 app = Flask(__name__)
@@ -21,6 +23,7 @@ os.makedirs(JOBS_FOLDER, exist_ok=True)
 job_data = {
     "error": Bool,
     "finished": Bool,
+    "aborted": {0,1,2}, # -> {"Not requested", "job abort requested", "success"}
     "upload_path": String,
     "stdout_path": String,
     "stderr_path": String,
@@ -38,12 +41,13 @@ def index():
 def fileTooLarge(error):
     return jsonify({"error": "File is too large"}), 413 # No set file limit at the moment
 
-@app.route("/clear/<job_id>")
+@app.route("/clear/<job_id>", methods=["POST"])
 def flushJob(job_id):
+    abortJob(job_id)
     job_path = os.path.join(JOBS_FOLDER, job_id)
 
     if not os.path.isdir(job_path): # not job_id in jobs and 
-        return jsonify({"error": "Job not found."}), 400
+        return jsonify({"error": "Job not found."}), 404
 
     if os.path.isdir(job_path):
         shutil.rmtree(job_path)
@@ -58,7 +62,7 @@ def getStderr(job_id):
     if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
     else:
-        return jsonify({"error": "Job not found."}), 400
+        return jsonify({"error": "Job not found."}), 404
     
     stream = request.args.get("stream", default="0", type=str)
 
@@ -100,13 +104,15 @@ def getResult(job_id):
     if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
     else:
-        return jsonify({"error": "Job not found."}), 400
+        return jsonify({"error": "Job not found."}), 404
     
     raw_output = request.args.get("raw_out", default="0", type=str)
         
     if job_data["error"]:
         return jsonify({"error" : "Job encountered an error."}), 500
-    if not job_data["finished"]:
+    elif job_data["aborted"] == 2:
+        return jsonify({"error": "Job was aborted."}), 400
+    elif not job_data["finished"]:
         return jsonify({"error": "Job not done."}), 400
 
     buffer = io.BytesIO()
@@ -133,10 +139,12 @@ def checkProgress(job_id):
     if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
     else:
-        return jsonify({"error": "Job not found."}), 400
+        return jsonify({"error": "Job not found."}), 404
 
     if job_data["error"]:
         return jsonify({"progress": 0, "error": "Job encounterd an error"}), 500
+    elif job_data["aborted"]:
+        return jsonify({"progress": 0, "message": "Job was aborted"})
     elif not job_data["finished"]:
         return jsonify({"progress": 0})
 
@@ -211,6 +219,7 @@ def startBlant():
         # "stderr_queue" : queue.Queue(),
         "finished": False,
         "error": False,
+        "aborted": 0,
         "upload_path": upload_path,
         "stdout_path": stdout_path,
         "stderr_path": stderr_path,
@@ -228,27 +237,36 @@ def startBlant():
 
     return jsonify({"job_id": job_id})
 
-# @app.route("/abort/<job_id>", methods=["POST"])
-# def abortJob(job_id):
-#     if job_id not in jobs:
-#         return jsonify({"error": "Running job not found."}), 404
+@app.route("/abort/<job_id>", methods=["POST"])
+# @timeout(5) # 5 second timeout to avoid infinite loop
+def abortJob(job_id):
+    job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
 
-#     job_data = jobs[job_id]
+    if os.path.isfile(job_data_path):
+        job_data = load_job_data(job_data_path)
+    else:
+        return jsonify({"error": "Job not found."}), 404
 
-#     if job_data["finished"]:
-#         return jsonify({"error": "Job already finished."}), 400
+    if job_data["finished"]:
+        return jsonify({"error": "Job already finished."}), 400
+    elif job_data["aborted"] == 1:
+        return jsonify({"error": "Abort already requested."}), 400
+    elif job_data["aborted"] == 2:
+        return jsonify({"error": "Job was aborted."}), 400
+    elif job_data["error"]:
+        return jsonify({"error": "Job encountered an error."}), 500
 
-#     job_data["aborted"] = True
+    job_data["aborted"] = 1 # enum for requested abort
+    update_job_data(job_data, job_data_path)
 
-#     process = job_data.get("process")
-#     if process is not None and process.poll() is None:
-#         process.terminate()
+    cur_time = time.perf_counter()
+    while load_job_data(job_data_path).get("aborted") != 2:
+        elapsed_time = time.perf_counter() - cur_time # in seconds
+        if elapsed_time > 5:
+            return jsonify({"error": "Job abort failed."}), 500
+        time.sleep(.001) # sleep for 1 ms
 
-#     job_data["finished"] = True
-#     job_data["stderr_queue"].put(None)
-#     update_job_data(job_data, job_data["job_data_path"])
-
-#     return jsonify({"message": "Job aborted."}), 200
+    return jsonify({"message": "Job aborted."}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
