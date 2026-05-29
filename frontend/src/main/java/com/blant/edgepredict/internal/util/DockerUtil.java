@@ -23,18 +23,7 @@ public class DockerUtil extends AbstractTask {
         String os = System.getProperty("os.name").toLowerCase();
         isWin = os.contains("win");
 
-        // 1. Check Docker Daemon and attempt to start if not running 
-        monitor.setStatusMessage("Checking whether Docker is installed...");
-        if (!isDockerInstalled()) {
-            JOptionPane.showMessageDialog(
-                    null,
-                    "Docker is not installed. Please install Docker and try again.",
-                    "Docker Not Running",
-                    JOptionPane.INFORMATION_MESSAGE
-                );
-            openInstallationPage();
-        }
-
+        // 1. Check Docker Daemon and attempt to start if not running
         monitor.setStatusMessage("Checking Docker daemon...");
         if (!executeCommand("docker info")) {
             monitor.setStatusMessage("Docker is not running. Attempting to start Docker...");
@@ -60,7 +49,6 @@ public class DockerUtil extends AbstractTask {
             }
             
             if (!isReady) {
-                // Docker still not running after attempt to start, show error and open installation page
                 JOptionPane.showMessageDialog(
                     null,
                     "Docker failed to start. Please re-install Docker and try again.",
@@ -68,6 +56,7 @@ public class DockerUtil extends AbstractTask {
                     JOptionPane.INFORMATION_MESSAGE
                 );
                 openInstallationPage();
+                throw new Exception("Docker failed to start.");
             }
         }
 
@@ -144,13 +133,26 @@ public class DockerUtil extends AbstractTask {
             builder.redirectErrorStream(true);
             Process process = builder.start();
 
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[Docker Log]: " + line);
-                }
+            // Drain stdout/stderr on a daemon thread — prevents pipe-buffer deadlock
+            // and avoids blocking the calling thread in readLine() when the process hangs
+            Thread drainer = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[Docker Log]: " + line);
+                    }
+                } catch (Exception ignored) {}
+            });
+            drainer.setDaemon(true);
+            drainer.start();
+
+            boolean finished = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                System.err.println("[ERROR] Command timed out: " + command);
+                return false;
             }
-            int exitCode = process.waitFor();
+            int exitCode = process.exitValue();
             if (exitCode != 0) {
                 System.err.println("[ERROR] Command failed with exit code " + exitCode);
                 return false;
@@ -199,19 +201,16 @@ public class DockerUtil extends AbstractTask {
         }
     }
 
-    private boolean isDockerInstalled() {
+    public static boolean isDockerInstalled() {
         String os = System.getProperty("os.name").toLowerCase();
-        String checkCmd = os.contains("win") ? "where docker" : "which docker";
+        List<String> cmd = os.contains("win")
+                ? List.of("cmd.exe", "/c", "where docker")
+                : List.of("which", "docker");
 
         try {
-            Process process = Runtime.getRuntime().exec(checkCmd);
+            Process process = new ProcessBuilder(cmd).start();
             int exitCode = process.waitFor();
-            
-            if (exitCode == 0) {
-                return true;
-            } else {
-                return false;
-            }
+            return exitCode == 0;
         } catch (Exception e) {
             return false;
         }
@@ -219,9 +218,9 @@ public class DockerUtil extends AbstractTask {
 
     private void tryToStartDocker() {
         if (isWin) {
-            // Windows: Call Docker Desktop executable to start the daemon 
+            // Windows: Call Docker Desktop executable to start the daemon
             try {
-                Process p = Runtime.getRuntime().exec("where docker");
+                Process p = new ProcessBuilder("cmd.exe", "/c", "where docker").start();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
                 String line = reader.readLine();
 
@@ -248,9 +247,17 @@ public class DockerUtil extends AbstractTask {
         }
     }
 
-    private void openInstallationPage() {
+    public static void openInstallationPage() {
+        String os = System.getProperty("os.name").toLowerCase();
+        String url = "https://www.docker.com/products/docker-desktop";
         try {
-            java.awt.Desktop.getDesktop().browse(new java.net.URI("https://www.docker.com/products/docker-desktop"));
+            if (os.contains("win")) {
+                new ProcessBuilder("cmd", "/c", "start", "", url).start();
+            } else if (os.contains("mac")) {
+                new ProcessBuilder("open", url).start();
+            } else {
+                new ProcessBuilder("xdg-open", url).start();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

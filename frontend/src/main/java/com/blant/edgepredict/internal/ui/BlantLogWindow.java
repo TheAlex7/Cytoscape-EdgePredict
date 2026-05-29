@@ -46,11 +46,6 @@ public class BlantLogWindow extends JFrame {
 
       this.closeBtn = new JButton("Close");
       this.closeBtn.addActionListener((e) -> {
-         if (BlantPoller.getInstance().isPolling()) {
-            BlantConfig.setAborted(true);
-            BlantPoller.getInstance().stopPolling();
-            BlantPoller.getInstance().abort();
-         }
          setVisible(false);
       });
 

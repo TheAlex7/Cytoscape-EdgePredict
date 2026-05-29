@@ -20,11 +20,13 @@ import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.util.swing.FileChooserFilter;
 import org.cytoscape.util.swing.FileUtil;
+import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.model.CyNetworkViewFactory;
 import org.cytoscape.view.model.CyNetworkViewManager;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
+import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.CacheUtil;
 
 public class SendToBlant {
@@ -55,20 +57,30 @@ public class SendToBlant {
     }
 
     public File selectFile(Boolean isFile) {
-        if (isFile) {
-            FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
-            return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
-        }
-        else {
-            ExportGraph exportGraph = ExportGraph.getInstance();
-            try {
-                return exportGraph.ExportCurrentGraph(new org.cytoscape.work.TaskMonitor() {
-                public void setTitle(String s) {} public void setProgress(double p) {}
-                public void setStatusMessage(String s) {} public void showMessage(org.cytoscape.work.TaskMonitor.Level l, String s) {}});
-            } catch (Exception e) {
-                this.logWindow.appendLog("[ERROR] Failed to export current graph: " + e.getMessage());
+        // File chooser path (commented out — always export current graph as SIF)
+        // if (isFile) {
+        //     FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
+        //     return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+        // }
+
+        ExportGraph exportGraph = ExportGraph.getInstance();
+        try {
+            // captureView() must run on EDT; invokeAndWait dispatches safely from a background thread
+            CyNetworkView[] viewHolder = new CyNetworkView[1];
+            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                viewHolder[0] = exportGraph.captureView();
+            } else {
+                javax.swing.SwingUtilities.invokeAndWait(() -> viewHolder[0] = exportGraph.captureView());
+            }
+            if (viewHolder[0] == null) {
+                this.logWindow.appendLog("[ERROR] No active graph view.");
                 return null;
             }
+            // exportView() is blocking I/O — runs on the calling background thread
+            return exportGraph.exportView(viewHolder[0]);
+        } catch (Exception e) {
+            this.logWindow.appendLog("[ERROR] Failed to export current graph: " + e.getMessage());
+            return null;
         }
     }
 
@@ -180,6 +192,12 @@ public class SendToBlant {
                             return true;
                         } else {
                             this.logWindow.appendLog("[WARN] Server cache returned HTTP " + resultStatus + ".");
+                            if (resultStatus >= 500) {
+                                String stderr = BlantPoller.fetchStderr(jobId);
+                                if (stderr != null && !stderr.isBlank()) {
+                                    this.logWindow.appendLog("[STDERR]\n" + stderr);
+                                }
+                            }
                         }
                     } catch (Exception downloadEx) {
                         this.logWindow.appendLog("[WARN] Could not reach server cache: " + downloadEx.getMessage());
