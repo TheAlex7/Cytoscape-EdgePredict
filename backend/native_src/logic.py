@@ -2,6 +2,7 @@ import subprocess, threading, os
 import hashlib
 import json
 import os
+import select
 
 def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampling_method = "EBE!", precision = "1.5", MOCK=False):
     job_data = load_job_data(job_data_path)
@@ -28,14 +29,20 @@ def run_blant(job_data_path, input_path, stdout_path, stderr_path, k="4", sampli
         text=True,
         bufsize=1
     )
-    # job_data["process"] = process
 
     def stream_stderr():
         with open(stderr_path, "w") as f:
-            for line in process.stderr:
-                # job_data["stderr_queue"].put(line) # streaming line # deprecated
-                f.write(line) # saving output
-                f.flush()
+            while process.poll() is None: # returns None when process hasn't finished
+                if load_job_data(job_data_path).get("aborted"):
+                    process.terminate()
+                    job_data["aborted"] = 2
+                    update_job_data(job_data, job_data_path)
+                ready, _, _ = select.select([process.stderr],[],[],1)
+                if ready:
+                    line = process.stderr.readline()
+                    if not line: break
+                    f.write(line) # saving output
+                    f.flush()
 
     def capture_stdout():
         empty = True
