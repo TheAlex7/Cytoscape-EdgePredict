@@ -105,8 +105,8 @@ public class ImportGraph {
 
         // Add network and create view — must run on EDT
         CyNetworkView[] viewHolder = new CyNetworkView[1];
+        VisualUtil.showTableDialogue(responseText);
         SwingUtilities.invokeAndWait(() -> {
-            VisualUtil.showTableDialogue(responseText);
             networkManager.addNetwork(network);
             viewHolder[0] = networkViewFactory.createNetworkView(network);
             networkViewManager.addNetworkView(viewHolder[0]);
