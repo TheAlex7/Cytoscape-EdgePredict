@@ -86,16 +86,7 @@ public class SendToBlant {
 
     public boolean send(File file) throws Exception {
         BlantConfig.setInputFile(file);
-        this.logWindow.setVisible(true);
-
-        this.logWindow.appendLog("========================================");
-        this.logWindow.appendLog("Session starts: " + new java.util.Date().toString());
-        this.logWindow.appendLog("========================================");
-
-        this.logWindow.appendLog("[INFO] File selected: " + file.getName());
-        this.logWindow.appendLog("[INFO] BLANT server selected: " + (BlantConfig.isOnline ? "Online" : "Local"));
         this.logWindow.appendLog("[INFO] Sending to BLANT...");
-
         return doSend(file, BlantConfig.getForce());
     }
 

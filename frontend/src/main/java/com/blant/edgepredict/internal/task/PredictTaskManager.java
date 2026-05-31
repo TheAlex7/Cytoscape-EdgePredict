@@ -87,8 +87,15 @@ public class PredictTaskManager {
 
     private void task() {
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
-        SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
+
         logWindow.setVisible(true);
+
+        logWindow.appendLog("========================================");
+        logWindow.appendLog("Session starts: " + new java.util.Date().toString());
+        logWindow.appendLog("========================================");
+        logWindow.appendLog("[INFO] BLANT server selected: " + (BlantConfig.isOnline ? "Online" : "Local"));
+
+        SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
 
         // selectFile() handles EDT dispatch internally via invokeAndWait — safe to call from background
         new Thread(() -> {
