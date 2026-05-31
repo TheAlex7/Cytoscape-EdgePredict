@@ -163,6 +163,11 @@ public class SendToBlant {
 
                 if (status == 200) {
                     this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
+                    if (BlantConfig.getOnline()) {
+                        this.logWindow.appendLog("[INFO] Remote server will process this job.");
+                    } else {
+                        this.logWindow.appendLog("[INFO] Local BLANT will process this job.");
+                    }
                     if (this.isSaved) {
                         this.logWindow.appendLog(CacheUtil.saveInput(jobId, new String(baos.toByteArray(), StandardCharsets.UTF_8)));
                     }
@@ -179,7 +184,7 @@ public class SendToBlant {
                     }
 
                     // 2. Try server cache
-                    this.logWindow.appendLog("[INFO] No local cache — checking server cache...");
+                    this.logWindow.appendLog("[INFO] No local cache found — checking server cache...");
                     try {
                         URL resultUrl = new URL(BlantConfig.getResultUrl() + jobId);
                         HttpURLConnection resultConn = (HttpURLConnection) resultUrl.openConnection();
@@ -188,7 +193,7 @@ public class SendToBlant {
                         if (resultStatus == 200) {
                             cached = new String(resultConn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                             this.logWindow.appendLog(CacheUtil.saveOutput(jobId, cached));
-                            this.logWindow.appendLog("[INFO] Result downloaded from server cache.");
+                            this.logWindow.appendLog("[INFO] Result retrieved from server cache.");
                             return true;
                         } else {
                             this.logWindow.appendLog("[WARN] Server cache returned HTTP " + resultStatus + ".");
@@ -205,7 +210,7 @@ public class SendToBlant {
 
                     // 3. Auto-retry with force
                     if (!force) {
-                        this.logWindow.appendLog("[INFO] Retrying with force...");
+                        this.logWindow.appendLog("[INFO] Force mode enabled: processing new job, this may take a while...");
                         return doSend(file, true);
                     }
                     this.logWindow.appendLog("[ERROR] Server returned 409 even with force. Aborting.");
