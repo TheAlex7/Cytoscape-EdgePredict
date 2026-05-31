@@ -271,6 +271,7 @@ public class NavDashboard extends JFrame {
         chkOnline.setPreferredSize(new Dimension(120, 25));
         JCheckBox chkForce = new JCheckBox("Force Mode");
         chkForce.setSelected(false);
+        BlantConfig.setForce(false);
         chkForce.addActionListener(e -> BlantConfig.setForce(chkForce.isSelected()));
         chkForce.setPreferredSize(new Dimension(120, 25));
         panel.add(chkSave);
