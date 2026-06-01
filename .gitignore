@@ -1,1 +1,7 @@
 .vscode
+
+# Ignore Claude/Anthropic assistant files
+.claude
+.claude/
+.claude*
+claude-

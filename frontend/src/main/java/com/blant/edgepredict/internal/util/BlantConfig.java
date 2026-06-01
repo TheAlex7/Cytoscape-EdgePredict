@@ -8,7 +8,7 @@ public class BlantConfig {
     public static boolean isOnline = true;
     private static final AtomicBoolean isAborted = new AtomicBoolean(false);
 
-    public static final String BLANT_URL = "http://bayonet-10.ics.uci.edu:49161/";
+    public static final String BLANT_URL = "http://bayonet-10.ics.uci.edu:49161";
     public static final String BLANT_URL_LOCAL = "http://localhost:49161";
 
     private static final AtomicReference<String> JOB_ID = new AtomicReference<>(null);

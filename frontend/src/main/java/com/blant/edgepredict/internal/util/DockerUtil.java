@@ -74,14 +74,16 @@ public class DockerUtil extends AbstractTask {
         }
         monitor.setProgress(0.5);
 
-        // 4. Run container
+        // 4. Run container (skip if service already up on the expected port)
         monitor.setStatusMessage("Starting Flask server...");
         monitor.setProgress(0.7);
-        if (!executeCommand("docker start blant-svc")) {
-            monitor.setStatusMessage("Container not found, creating new container...");
-            monitor.setProgress(0.8);
-            if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 thealex7/blant-predict")) {
-                throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
+        if (!isServiceAlreadyRunning()) {
+            if (!executeCommand("docker start blant-svc")) {
+                monitor.setStatusMessage("Container not found, creating new container...");
+                monitor.setProgress(0.8);
+                if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 thealex7/blant-predict")) {
+                    throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
+                }
             }
         }
 
@@ -118,6 +120,20 @@ public class DockerUtil extends AbstractTask {
         String os = System.getProperty("os.name").toLowerCase();
         isWin = os.contains("win");
         executeCommand("docker stop blant-svc");
+    }
+
+    private boolean isServiceAlreadyRunning() {
+        try {
+            HttpURLConnection conn = (HttpURLConnection) URI.create(BlantConfig.BLANT_URL_LOCAL).toURL().openConnection();
+            conn.setConnectTimeout(1000);
+            conn.setReadTimeout(1000);
+            conn.setRequestMethod("GET");
+            int code = conn.getResponseCode();
+            conn.disconnect();
+            return code == 200;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean executeCommand(String command) {
