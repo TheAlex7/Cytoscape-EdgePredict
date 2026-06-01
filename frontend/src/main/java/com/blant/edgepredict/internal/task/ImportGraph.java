@@ -25,6 +25,7 @@ import org.cytoscape.view.vizmap.VisualStyleFactory;
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.ui.NavDashboard;
 import com.blant.edgepredict.internal.util.BlantConfig;
+import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.CacheUtil;
 import com.blant.edgepredict.internal.util.VisualUtil;
 
@@ -65,13 +66,7 @@ public class ImportGraph {
             if (responseText.contains("ERROR")) {
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog((Component) null, "Locally saved file cannot be read."));
             } else {
-                SwingUtilities.invokeLater(() -> {
-                    try {
-                        this.processResult(responseText, jobId);
-                    } catch (Exception ex) {
-                        logWindow.appendLog("[ERROR] Failed to process result: " + ex.getMessage());
-                    }
-                });
+                this.processResult(responseText, jobId);
             }
         } else {
             this.logWindow.appendLog("[INFO] Fetching result for job ID: " + jobId);
@@ -85,37 +80,40 @@ public class ImportGraph {
                         ? new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)
                         : "Unknown error";
                 this.logWindow.appendLog("[ERROR] Failed to fetch result: " + error);
+                String stderr = BlantPoller.fetchStderr(jobId);
+                if (stderr != null && !stderr.isBlank()) {
+                    this.logWindow.appendLog("[STDERR]\n" + stderr);
+                }
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog((Component) null, "Failed to fetch BLANT result: " + error));
             } else {
                 String responseText = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 this.logWindow.appendLog("[INFO] Result received. Parsing network...");
-                SwingUtilities.invokeLater(() -> {
-                    try {
-                        this.processResult(responseText, jobId);
-                    } catch (Exception ex) {
-                        logWindow.appendLog("[ERROR] Failed to process result: " + ex.getMessage());
-                    }
-                });
+                this.processResult(responseText, jobId);
             }
         }
     }
 
     private void processResult(String responseText, String jobId) throws Exception {
-        VisualUtil.showTableDialogue(responseText);
-
+        // Heavy data processing on background thread — EDT stays free to repaint logs
         NetworkBuilder builder = new NetworkBuilder(logWindow);
         CyNetwork network = builder.build(responseText, networkFactory);
         builder.addOriginalEdges(BlantConfig.getInputFile(), network);
         double scoreMin = builder.getScoreMin();
         double scoreMax = builder.getScoreMax();
         int added = builder.getEdgesAdded();
-
         logWindow.appendLog("[INFO] Score range: min=" + scoreMin + ", max=" + scoreMax);
-        networkManager.addNetwork(network);
 
-        CyNetworkView view = networkViewFactory.createNetworkView(network);
-        networkViewManager.addNetworkView(view);
+        // Add network and create view — must run on EDT
+        CyNetworkView[] viewHolder = new CyNetworkView[1];
+        VisualUtil.showTableDialogue(responseText);
+        SwingUtilities.invokeAndWait(() -> {
+            networkManager.addNetwork(network);
+            viewHolder[0] = networkViewFactory.createNetworkView(network);
+            networkViewManager.addNetworkView(viewHolder[0]);
+        });
+        CyNetworkView view = viewHolder[0];
 
+        // Layout runs on background thread (designed to run as a Cytoscape task)
         layoutManager.getDefaultLayout().createTaskIterator(
                 view, layoutManager.getDefaultLayout().getDefaultLayoutContext(),
                 org.cytoscape.view.layout.CyLayoutAlgorithm.ALL_NODE_VIEWS, null
@@ -126,30 +124,33 @@ public class ImportGraph {
             }); } catch (Exception ignored) {}
         });
 
-        VisualUtil.applyStyles(view, vmm, vmfDiscrete, vmfPassthrough, vsFactory);
-
+        // Apply styles, edge colors, and update view — on EDT
         final double finalScoreMin = scoreMin;
         final double finalScoreMax = scoreMax;
+        SwingUtilities.invokeAndWait(() -> {
+            VisualUtil.applyStyles(view, vmm, vmfDiscrete, vmfPassthrough, vsFactory);
 
-        view.getEdgeViews().forEach(ev -> {
-            CyEdge edgeModel = (CyEdge) ev.getModel();
-            Double score = network.getRow(edgeModel).get("confidence_score", Double.class);
-            String orbitPair = network.getRow(edgeModel).get("orbit_pair", String.class);
-            String edgeName = network.getRow(edgeModel).get("name", String.class);
+            view.getEdgeViews().forEach(ev -> {
+                CyEdge edgeModel = (CyEdge) ev.getModel();
+                Double score = network.getRow(edgeModel).get("confidence_score", Double.class);
+                String orbitPair = network.getRow(edgeModel).get("orbit_pair", String.class);
+                String edgeName = network.getRow(edgeModel).get("name", String.class);
 
-            if (score != null) {
-                Color gradientColor = VisualUtil.scoreToColor(score, finalScoreMin, finalScoreMax);
-                ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
-                ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);
-            }
+                if (score != null) {
+                    Color gradientColor = VisualUtil.scoreToColor(score, finalScoreMin, finalScoreMax);
+                    ev.setLockedValue(BasicVisualLexicon.EDGE_STROKE_UNSELECTED_PAINT, gradientColor);
+                    ev.setLockedValue(BasicVisualLexicon.EDGE_PAINT, gradientColor);
+                }
 
-            String tooltip = "<html><b>" + edgeName + "</b><br>Score: "
-                    + (score != null ? String.format("%.6f", score) : "—")
-                    + "<br>Orbit Pair: " + (orbitPair != null ? orbitPair : "—") + "</html>";
-            ev.setLockedValue(BasicVisualLexicon.EDGE_TOOLTIP, tooltip);
+                String tooltip = "<html><b>" + edgeName + "</b><br>Score: "
+                        + (score != null ? String.format("%.6f", score) : "—")
+                        + "<br>Orbit Pair: " + (orbitPair != null ? orbitPair : "—") + "</html>";
+                ev.setLockedValue(BasicVisualLexicon.EDGE_TOOLTIP, tooltip);
+            });
+
+            view.updateView();
         });
 
-        view.updateView();
         logWindow.appendLog("[INFO] Network loaded: " + added + " edges added.");
 
         if (isSaved) {
@@ -158,12 +159,8 @@ public class ImportGraph {
 
         NavDashboard dashboard = NavDashboard.getExistingInstance();
         if (dashboard != null) {
-            dashboard.setScoreRange(scoreMin, scoreMax, view);
+            SwingUtilities.invokeLater(() -> dashboard.setScoreRange(scoreMin, scoreMax, view));
         }
-
-        // JOptionPane.showMessageDialog((Component) null,
-        //         "Import complete: " + added + " edges added.\n"
-        //         + String.format("Score range: %.4f – %.4f", scoreMin, scoreMax));
     }
 
 }

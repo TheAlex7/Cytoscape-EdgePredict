@@ -12,8 +12,8 @@ import org.cytoscape.work.TaskMonitor;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 
-public class ExportGraph{
-    
+public class ExportGraph {
+
     private static ExportGraph instance;
     private final CyApplicationManager appManager;
     private final CyNetworkViewWriterManager writerManager;
@@ -23,14 +23,17 @@ public class ExportGraph{
         this.writerManager = writerManager;
     }
 
-    public File ExportCurrentGraph(TaskMonitor taskMonitor) throws Exception{
-        // bring currently activated graph view
-        CyNetworkView currentView = appManager.getCurrentNetworkView();
-        if (currentView == null) {
-            throw new IllegalStateException("There are no currently activated graph views");
+    // Must be called on EDT: captures the current view reference only
+    public CyNetworkView captureView() {
+        return appManager.getCurrentNetworkView();
+    }
+
+    // Must be called on a background thread: does all blocking I/O
+    public File exportView(CyNetworkView view) throws Exception {
+        if (view == null) {
+            throw new IllegalStateException("No active graph view");
         }
 
-        // get sif file filter && create sif writer
         CyFileFilter sifFilter = null;
         for (CyFileFilter filter : writerManager.getAvailableWriterFilters()) {
             if (filter.getExtensions().contains("sif")) {
@@ -38,22 +41,32 @@ public class ExportGraph{
                 break;
             }
         }
+        if (sifFilter == null) {
+            throw new IllegalStateException("SIF writer not available");
+        }
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        CyWriter writer = writerManager.getWriter(currentView, sifFilter, out);
-        
-        // Write the graph && return
-        BlantLogWindow logWindow = BlantLogWindow.getInstance();
-        logWindow.appendLog("[INFO] Exporting current graph...");
-        writer.run(taskMonitor);
-        
+        CyWriter writer = writerManager.getWriter(view, sifFilter, out);
+        if (writer == null) {
+            throw new IllegalStateException("Could not create SIF writer for current view");
+        }
+
+        BlantLogWindow.getInstance().appendLog("[INFO] Exporting current graph...");
+
+        TaskMonitor noOp = new TaskMonitor() {
+            public void setTitle(String s) {}
+            public void setProgress(double p) {}
+            public void setStatusMessage(String s) {}
+            public void showMessage(TaskMonitor.Level l, String s) {}
+        };
+        writer.run(noOp);
+
         byte[] graphBytes = out.toByteArray();
         File tempFile = File.createTempFile("blant_graph_", ".sif");
         tempFile.deleteOnExit();
-
         try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
             fos.write(graphBytes);
         }
-        
         return tempFile;
     }
 

@@ -74,14 +74,22 @@ public class BlantPoller {
                             }
                         } else {
                             InputStream errStream = conn.getErrorStream();
+                            String errBody = "";
                             if (errStream != null) {
                                 BufferedReader errReader = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8));
                                 StringBuilder errSb = new StringBuilder();
                                 String errLine;
                                 while ((errLine = errReader.readLine()) != null) errSb.append(errLine);
-                                publish("[ERROR] Server returned HTTP " + responseCode + ": " + errSb.toString());
-                            } else {
-                                publish("[ERROR] Server returned HTTP " + responseCode);
+                                errBody = ": " + errSb.toString();
+                            }
+                            publish("[ERROR] Server returned HTTP " + responseCode + errBody);
+                            if (responseCode >= 500) {
+                                publish("[ERROR] Server error encountered. Fetching BLANT stderr...");
+                                String stderr = fetchStderr(jobId);
+                                if (stderr != null && !stderr.isBlank()) {
+                                    publish("[STDERR]\n" + stderr);
+                                }
+                                return null;
                             }
                         }
                         Thread.sleep(5000); // Poll every 5 second
@@ -113,6 +121,23 @@ public class BlantPoller {
             }
         };
         this.poller.execute();
+    }
+
+    public static String fetchStderr(String jobId) {
+        if (jobId == null) return null;
+        try {
+            java.net.URL url = java.net.URI.create(BlantConfig.getStderrUrl() + jobId).toURL();
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(5000);
+            if (conn.getResponseCode() == 200) {
+                try (InputStream is = conn.getInputStream()) {
+                    return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     public void stopPolling() {

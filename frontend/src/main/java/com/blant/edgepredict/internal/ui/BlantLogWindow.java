@@ -17,6 +17,9 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
 
@@ -46,11 +49,6 @@ public class BlantLogWindow extends JFrame {
 
       this.closeBtn = new JButton("Close");
       this.closeBtn.addActionListener((e) -> {
-         if (BlantPoller.getInstance().isPolling()) {
-            BlantConfig.setAborted(true);
-            BlantPoller.getInstance().stopPolling();
-            BlantPoller.getInstance().abort();
-         }
          setVisible(false);
       });
 
@@ -85,9 +83,12 @@ public class BlantLogWindow extends JFrame {
       return instance;
    }
 
+   private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
+
    public void appendLog(String message) {
+      String timestamp = LocalTime.now().format(TIME_FMT);
       SwingUtilities.invokeLater(() -> {
-         this.logArea.append(message + "\n");
+         this.logArea.append("[" + timestamp + "] " + message + "\n");
          this.logArea.setCaretPosition(this.logArea.getDocument().getLength());
       });
    }

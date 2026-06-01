@@ -20,11 +20,13 @@ import org.cytoscape.model.CyNetworkFactory;
 import org.cytoscape.model.CyNetworkManager;
 import org.cytoscape.util.swing.FileChooserFilter;
 import org.cytoscape.util.swing.FileUtil;
+import org.cytoscape.view.model.CyNetworkView;
 import org.cytoscape.view.model.CyNetworkViewFactory;
 import org.cytoscape.view.model.CyNetworkViewManager;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 import com.blant.edgepredict.internal.util.BlantConfig;
+import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.CacheUtil;
 
 public class SendToBlant {
@@ -55,35 +57,36 @@ public class SendToBlant {
     }
 
     public File selectFile(Boolean isFile) {
-        if (isFile) {
-            FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
-            return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
-        }
-        else {
-            ExportGraph exportGraph = ExportGraph.getInstance();
-            try {
-                return exportGraph.ExportCurrentGraph(new org.cytoscape.work.TaskMonitor() {
-                public void setTitle(String s) {} public void setProgress(double p) {}
-                public void setStatusMessage(String s) {} public void showMessage(org.cytoscape.work.TaskMonitor.Level l, String s) {}});
-            } catch (Exception e) {
-                this.logWindow.appendLog("[ERROR] Failed to export current graph: " + e.getMessage());
+        // File chooser path (commented out — always export current graph as SIF)
+        // if (isFile) {
+        //     FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
+        //     return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+        // }
+
+        ExportGraph exportGraph = ExportGraph.getInstance();
+        try {
+            // captureView() must run on EDT; invokeAndWait dispatches safely from a background thread
+            CyNetworkView[] viewHolder = new CyNetworkView[1];
+            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                viewHolder[0] = exportGraph.captureView();
+            } else {
+                javax.swing.SwingUtilities.invokeAndWait(() -> viewHolder[0] = exportGraph.captureView());
+            }
+            if (viewHolder[0] == null) {
+                this.logWindow.appendLog("[ERROR] No active graph view.");
                 return null;
             }
+            // exportView() is blocking I/O — runs on the calling background thread
+            return exportGraph.exportView(viewHolder[0]);
+        } catch (Exception e) {
+            this.logWindow.appendLog("[ERROR] Failed to export current graph: " + e.getMessage());
+            return null;
         }
     }
 
     public boolean send(File file) throws Exception {
         BlantConfig.setInputFile(file);
-        this.logWindow.setVisible(true);
-
-        this.logWindow.appendLog("========================================");
-        this.logWindow.appendLog("Session starts: " + new java.util.Date().toString());
-        this.logWindow.appendLog("========================================");
-
-        this.logWindow.appendLog("[INFO] File selected: " + file.getName());
-        this.logWindow.appendLog("[INFO] BLANT server selected: " + (BlantConfig.isOnline ? "Online" : "Local"));
         this.logWindow.appendLog("[INFO] Sending to BLANT...");
-
         return doSend(file, BlantConfig.getForce());
     }
 
@@ -151,6 +154,11 @@ public class SendToBlant {
 
                 if (status == 200) {
                     this.logWindow.appendLog("[INFO] File sent successfully. Awaiting response...");
+                    if (BlantConfig.getOnline()) {
+                        this.logWindow.appendLog("[INFO] Remote server will process this job.");
+                    } else {
+                        this.logWindow.appendLog("[INFO] Local BLANT will process this job.");
+                    }
                     if (this.isSaved) {
                         this.logWindow.appendLog(CacheUtil.saveInput(jobId, new String(baos.toByteArray(), StandardCharsets.UTF_8)));
                     }
@@ -167,7 +175,7 @@ public class SendToBlant {
                     }
 
                     // 2. Try server cache
-                    this.logWindow.appendLog("[INFO] No local cache — checking server cache...");
+                    this.logWindow.appendLog("[INFO] No local cache found — checking server cache...");
                     try {
                         URL resultUrl = new URL(BlantConfig.getResultUrl() + jobId);
                         HttpURLConnection resultConn = (HttpURLConnection) resultUrl.openConnection();
@@ -176,10 +184,16 @@ public class SendToBlant {
                         if (resultStatus == 200) {
                             cached = new String(resultConn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                             this.logWindow.appendLog(CacheUtil.saveOutput(jobId, cached));
-                            this.logWindow.appendLog("[INFO] Result downloaded from server cache.");
+                            this.logWindow.appendLog("[INFO] Result retrieved from server cache.");
                             return true;
                         } else {
                             this.logWindow.appendLog("[WARN] Server cache returned HTTP " + resultStatus + ".");
+                            if (resultStatus >= 500) {
+                                String stderr = BlantPoller.fetchStderr(jobId);
+                                if (stderr != null && !stderr.isBlank()) {
+                                    this.logWindow.appendLog("[STDERR]\n" + stderr);
+                                }
+                            }
                         }
                     } catch (Exception downloadEx) {
                         this.logWindow.appendLog("[WARN] Could not reach server cache: " + downloadEx.getMessage());
@@ -187,7 +201,7 @@ public class SendToBlant {
 
                     // 3. Auto-retry with force
                     if (!force) {
-                        this.logWindow.appendLog("[INFO] Retrying with force...");
+                        this.logWindow.appendLog("[INFO] Force mode enabled: processing new job, this may take a while...");
                         return doSend(file, true);
                     }
                     this.logWindow.appendLog("[ERROR] Server returned 409 even with force. Aborting.");

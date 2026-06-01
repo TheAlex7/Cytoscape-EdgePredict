@@ -17,18 +17,15 @@ import org.cytoscape.work.TaskIterator;
 import org.cytoscape.work.swing.DialogTaskManager;
 
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
-import com.blant.edgepredict.internal.ui.ProjectsDashboard;
 import com.blant.edgepredict.internal.util.BlantConfig;
 import com.blant.edgepredict.internal.util.BlantPoller;
 import com.blant.edgepredict.internal.util.DockerUtil;
-import com.blant.edgepredict.internal.util.ProjectStore;
 
 public class PredictTaskManager {
     private final String sampleMethod;
     private final double precisionDigits;
     private final List<String> kVal;
     private final boolean isSaved;
-    private final String projectName;
     private final FileUtil fileUtil;
     private final CyNetworkFactory networkFactory;
     private final CyNetworkManager networkManager;
@@ -42,12 +39,11 @@ public class PredictTaskManager {
     private final DialogTaskManager dialogTaskManager;
     private final Boolean isFile;
 
-    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, String projectName, Boolean isFile) {
+    public PredictTaskManager(FileUtil fileUtil, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, DialogTaskManager dialogTaskManager, String sampleMethod, double precisionDigits, List<String> kVal, boolean isSaved, Boolean isFile) {
         this.sampleMethod = sampleMethod;
         this.precisionDigits = precisionDigits;
         this.kVal = kVal;
         this.isSaved = isSaved;
-        this.projectName = projectName;
         this.fileUtil = fileUtil;
         this.networkFactory = networkFactory;
         this.networkManager = networkManager;
@@ -64,6 +60,16 @@ public class PredictTaskManager {
 
     public void run() {
         if (!BlantConfig.getOnline()) {
+            if (!DockerUtil.isDockerInstalled()) {
+                javax.swing.JOptionPane.showMessageDialog(
+                    null,
+                    "Docker is not installed. Please install Docker and try again.",
+                    "Docker Not Found",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE
+                );
+                DockerUtil.openInstallationPage();
+                return;
+            }
             dialogTaskManager.execute(new TaskIterator(new DockerUtil()), new org.cytoscape.work.TaskObserver() {
                 @Override
                 public void allFinished(org.cytoscape.work.FinishStatus finishStatus) {
@@ -81,58 +87,62 @@ public class PredictTaskManager {
 
     private void task() {
         BlantLogWindow logWindow = BlantLogWindow.getInstance();
-        SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
-        File file = sendTask.selectFile(this.isFile);
+
         logWindow.setVisible(true);
 
-        if (file == null) {
-            logWindow.appendLog("[INFO] Send to BLANT cancelled by user.");
-            return;
-        }
+        logWindow.appendLog("========================================");
+        logWindow.appendLog("Session starts: " + new java.util.Date().toString());
+        logWindow.appendLog("========================================");
+        logWindow.appendLog("[INFO] BLANT server selected: " + (BlantConfig.isOnline ? "Online" : "Local"));
 
+        SendToBlant sendTask = new SendToBlant(this.fileUtil, this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, logWindow);
+
+        // selectFile() handles EDT dispatch internally via invokeAndWait — safe to call from background
         new Thread(() -> {
-            try {
-                boolean status = sendTask.send(file);
-                
-                if (status) {
-                    BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), () -> {
-                        if (!BlantConfig.getAborted()) {
-                            new Thread(() -> {
-                                try {
-                                    new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
-                                    String savedJobId = BlantConfig.getJobId();
-                                    if (savedJobId != null && projectName != null && !projectName.isBlank()) {
-                                        String existing = ProjectStore.getNameByJobId(savedJobId);
-                                        if (existing != null) {
-                                            logWindow.appendLog("[INFO] This job is already saved locally as \"" + existing + "\" — not creating a duplicate.");
-                                        } else {
-                                            ProjectStore.saveProject(projectName, savedJobId);
-                                            java.io.File inputFile = BlantConfig.getInputFile();
-                                            if (inputFile != null) {
-                                                ProjectStore.saveInputFile(savedJobId, inputFile);
-                                            }
-                                            logWindow.appendLog("[INFO] Project saved: \"" + projectName + "\"");
-                                            ProjectsDashboard.refreshIfOpen();
-                                        }
+            File file = sendTask.selectFile(this.isFile);
+            if (file == null) {
+                logWindow.appendLog("[INFO] Send to BLANT cancelled.");
+                return;
+            }
+            runSend(sendTask, file, logWindow);
+        }).start();
+    }
+
+    private void runSend(SendToBlant sendTask, File file, BlantLogWindow logWindow) {
+        try {
+            boolean status = sendTask.send(file);
+
+            if (status) {
+                BlantPoller.getInstance().startPolling(BlantConfig.getJobId(), () -> {
+                    if (!BlantConfig.getAborted()) {
+                        new Thread(() -> {
+                            try {
+                                new ImportGraph(this.networkFactory, this.networkManager, this.networkViewFactory, this.networkViewManager, this.layoutManager, this.vmm, this.vmfDiscrete, this.vmfPassthrough, this.vsFactory, this.isSaved, logWindow).importFile();
+                            } catch (Exception ex) {
+                                System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
+                                logWindow.appendLog("[ERROR] Failed to import result: " + ex.getMessage());
+                                String jobId = BlantConfig.getJobId();
+                                if (jobId != null) {
+                                    String stderr = BlantPoller.fetchStderr(jobId);
+                                    if (stderr != null && !stderr.isBlank()) {
+                                        logWindow.appendLog("[STDERR]\n" + stderr);
                                     }
-                                } catch (Exception ex) {
-                                    System.getLogger(PredictTaskManager.class.getName()).log(Level.ERROR, (String) null, ex);
-                                } finally {
-                                    cleanupResources();
                                 }
-                            }).start();
-                        } else {
-                            cleanupResources();
-                        }
-                    });
-                } else {
-                    cleanupResources();
-                }
-            } catch (Exception e) {
-                logWindow.appendLog("[ERROR] Task failed: " + e.getMessage());
+                            } finally {
+                                cleanupResources();
+                            }
+                        }).start();
+                    } else {
+                        cleanupResources();
+                    }
+                });
+            } else {
                 cleanupResources();
             }
-        }).start();
+        } catch (Exception e) {
+            logWindow.appendLog("[ERROR] Task failed: " + e.getMessage());
+            cleanupResources();
+        }
     }
 
     private void cleanupResources() {

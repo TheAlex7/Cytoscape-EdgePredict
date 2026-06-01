@@ -95,4 +95,9 @@ public class BlantConfig {
         if (isOnline) return BLANT_URL + "/abort/" + BlantConfig.getJobId();
         else return BLANT_URL_LOCAL + "/abort/" + BlantConfig.getJobId();
     }
+
+    public static String getStderrUrl() {
+        if (isOnline) return BLANT_URL + "/stderr/";
+        else return BLANT_URL_LOCAL + "/stderr/";
+    }
 }

@@ -98,13 +98,9 @@ public class NavDashboard extends JFrame {
         logBtn.addActionListener(e -> BlantLogWindow.getInstance().setVisible(true));
         logBtn.setPreferredSize(new Dimension(120, 25));
 
-        JButton closePopupsBtn = new JButton("Close Popups");
+        JButton closePopupsBtn = new JButton("Close All Popups");
         closePopupsBtn.addActionListener(e -> { EdgeDetailPanel.closeAll(); NodeDetailPanel.closeAll(); });
         closePopupsBtn.setPreferredSize(new Dimension(120, 25));
-
-        JButton projectsBtn = new JButton("My Projects");
-        projectsBtn.addActionListener(e -> ProjectsDashboard.getInstance(networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory));
-        projectsBtn.setPreferredSize(new Dimension(120, 25));
 
         JButton sendBtn = new JButton("Run");
         sendBtn.addActionListener(e -> {
@@ -114,10 +110,8 @@ public class NavDashboard extends JFrame {
                     this.kVal.add(cb.getLabel());
                 }
             }
-            String projectName = askForUniqueName();
-            if (projectName == null) return;
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, projectName, this.isFile).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isFile).run();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(NavDashboard.this, "Predict task failed: " + ex.getMessage());
             }
@@ -127,7 +121,6 @@ public class NavDashboard extends JFrame {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.add(logBtn);
         buttonPanel.add(closePopupsBtn);
-        buttonPanel.add(projectsBtn);
         buttonPanel.add(sendBtn);
         this.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -278,6 +271,7 @@ public class NavDashboard extends JFrame {
         chkOnline.setPreferredSize(new Dimension(120, 25));
         JCheckBox chkForce = new JCheckBox("Force Mode");
         chkForce.setSelected(false);
+        BlantConfig.setForce(false);
         chkForce.addActionListener(e -> BlantConfig.setForce(chkForce.isSelected()));
         chkForce.setPreferredSize(new Dimension(120, 25));
         panel.add(chkSave);
@@ -285,21 +279,7 @@ public class NavDashboard extends JFrame {
         panel.add(chkForce);
         return panel;
     }
-
-    private String askForUniqueName() {
-        while (true) {
-            String name = ProjectNameDialog.show(this);
-            if (name == null) return null;
-            if (com.blant.edgepredict.internal.util.ProjectStore.getProjects().containsKey(name)) {
-                JOptionPane.showMessageDialog(this,
-                    "A project named \"" + name + "\" already exists. Please choose a different name.",
-                    "Name Already Used", JOptionPane.WARNING_MESSAGE);
-            } else {
-                return name;
-            }
-        }
-    }
-
+    
     public void setScoreRange(double min, double max, CyNetworkView view) {
         filterPanel.setScoreRange(min, max, view);
     }
