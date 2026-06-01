@@ -16,6 +16,9 @@ import org.cytoscape.work.TaskMonitor;
 public class DockerUtil extends AbstractTask {
     private Boolean isWin;
 
+    private static final String MAC_PATH =
+        "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+
     @Override
     public void run(TaskMonitor monitor) throws Exception {
         monitor.setTitle("Docker Environment Setup");
@@ -31,7 +34,7 @@ public class DockerUtil extends AbstractTask {
 
             boolean isReady = false;
             int retries = 0;
-            
+
             while (!isReady && retries < 10) {
                 try {
                     Boolean check = executeCommand("docker info");
@@ -47,7 +50,7 @@ public class DockerUtil extends AbstractTask {
                     try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
                 }
             }
-            
+
             if (!isReady) {
                 JOptionPane.showMessageDialog(
                     null,
@@ -81,7 +84,7 @@ public class DockerUtil extends AbstractTask {
             if (!executeCommand("docker start blant-svc")) {
                 monitor.setStatusMessage("Container not found, creating new container...");
                 monitor.setProgress(0.8);
-                if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 thealex7/blant-predict")) {
+                if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 --platform linux/amd64 thealex7/blant-predict")) {
                     throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
                 }
             }
@@ -146,6 +149,9 @@ public class DockerUtil extends AbstractTask {
 
         try {
             ProcessBuilder builder = new ProcessBuilder(fullCmd);
+            if (!isWin) {
+                builder.environment().put("PATH", MAC_PATH);
+            }
             builder.redirectErrorStream(true);
             Process process = builder.start();
 
@@ -191,21 +197,36 @@ public class DockerUtil extends AbstractTask {
 
         try {
             ProcessBuilder builder = new ProcessBuilder(fullCmd);
+            if (!isWin) {
+                builder.environment().put("PATH", MAC_PATH);
+            }
             builder.redirectErrorStream(true);
             Process process = builder.start();
 
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[Docker Pull]: " + line);
-                    String trimmed = line.trim();
-                    if (!trimmed.isEmpty()) {
-                        monitor.setStatusMessage("Downloading: " + trimmed);
+            // Read output on a daemon thread so layer extraction (silent phase)
+            // does not block the calling thread and freeze the Cytoscape task monitor
+            Thread reader = new Thread(() -> {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        System.out.println("[Docker Pull]: " + line);
+                        String trimmed = line.trim();
+                        if (!trimmed.isEmpty()) {
+                            monitor.setStatusMessage("Downloading: " + trimmed);
+                        }
                     }
-                }
-            }
+                } catch (Exception ignored) {}
+            });
+            reader.setDaemon(true);
+            reader.start();
 
-            int exitCode = process.waitFor();
+            boolean finished = process.waitFor(10, java.util.concurrent.TimeUnit.MINUTES);
+            if (!finished) {
+                process.destroyForcibly();
+                System.err.println("[ERROR] docker pull timed out after 10 minutes.");
+                return false;
+            }
+            int exitCode = process.exitValue();
             if (exitCode != 0) {
                 System.err.println("[ERROR] docker pull failed with exit code " + exitCode);
                 return false;
@@ -219,12 +240,25 @@ public class DockerUtil extends AbstractTask {
 
     public static boolean isDockerInstalled() {
         String os = System.getProperty("os.name").toLowerCase();
-        List<String> cmd = os.contains("win")
+        boolean win = os.contains("win");
+        List<String> cmd = win
                 ? List.of("cmd.exe", "/c", "where docker")
                 : List.of("which", "docker");
 
         try {
-            Process process = new ProcessBuilder(cmd).start();
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            if (!win) {
+                pb.environment().put("PATH", MAC_PATH);
+            }
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            Thread drainer = new Thread(() -> {
+                try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    while (r.readLine() != null) {}
+                } catch (Exception ignored) {}
+            });
+            drainer.setDaemon(true);
+            drainer.start();
             int exitCode = process.waitFor();
             return exitCode == 0;
         } catch (Exception e) {
