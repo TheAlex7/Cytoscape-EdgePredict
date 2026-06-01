@@ -88,14 +88,15 @@ def get_checksum(file_storage, algorithm="sha256", chunk_size=65536) -> str:
     return hasher.hexdigest()
 
 def parse_line(blant_line: str, file_format) -> str:
-    if file_format == "sif":
-        # sif format line: src\tpredicted\tGSG1\t0.966667\t4:11:11\n']
-        src, _, dest, confidence, orbit = blant_line.split("\t")
-    else:
-        # default line: 'src:dest\tprec\tcount bestCol orbit\n'
-        nodes, confidence, orbit_info = blant_line.split("\t")
-        src, dest = nodes.split(":")
-        count, BEST_COL, orbit = orbit_info.split(" ") # I assume the number is the count of the particular orbit observed
+    # if file_format == "sif":
+    #     # sif format line: src\tpredicted\tGSG1\t0.966667\t4:11:11\n']
+    #     src, _, dest, confidence, orbit = blant_line.split("\t")
+    # else:
+    
+    # default line: 'src:dest\tprec\tcount bestCol orbit\n'
+    nodes, confidence, orbit_info = blant_line.split("\t")
+    src, dest = nodes.split(":")
+    count, BEST_COL, orbit = orbit_info.split(" ") # I assume the number is the count of the particular orbit observed
         
     return "\t".join([ elem.strip() for elem in (src, dest, confidence, orbit)]) + "\n" # not sure if we should include count
 
