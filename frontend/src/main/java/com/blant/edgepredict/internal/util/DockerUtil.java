@@ -72,6 +72,10 @@ public class DockerUtil extends AbstractTask {
             if (!pullImageWithProgress("thealex7/blant-predict", monitor)) {
                 throw new Exception("Failed to download Docker image. Check your internet connection.");
             }
+            monitor.setStatusMessage("Verifying downloaded image...");
+            if (!executeCommand("docker image inspect thealex7/blant-predict")) {
+                throw new Exception("Docker image was downloaded but could not be verified. Please try again.");
+            }
         } else {
             monitor.setStatusMessage("Analysis image found, skipping build.");
         }
@@ -84,13 +88,16 @@ public class DockerUtil extends AbstractTask {
             if (!executeCommand("docker start blant-svc")) {
                 monitor.setStatusMessage("Container not found, creating new container...");
                 monitor.setProgress(0.8);
-                if (!executeCommand("docker run -d --name blant-svc -p 49161:5000 --platform linux/amd64 thealex7/blant-predict")) {
-                    throw new Exception("Failed to start Docker container. Check your Docker installation and network port configuration. Rebooting your machine might help.");
+                String runError = runContainer();
+                if (runError != null) {
+                    throw new Exception("Failed to start Docker container: " + runError);
                 }
             }
         }
 
-        // Wait for Flask to be ready before returning
+        // Wait for Flask to be ready before returning.
+        // healthRetries is incremented for both connection failures (exception) and
+        // non-200 responses so the 30-attempt bound is enforced in all cases.
         monitor.setStatusMessage("Waiting for server to be ready...");
         boolean serverReady = false;
         int healthRetries = 0;
@@ -101,10 +108,14 @@ public class DockerUtil extends AbstractTask {
                 healthConn.setConnectTimeout(1000);
                 healthConn.setReadTimeout(1000);
                 healthConn.setRequestMethod("GET");
-                if (healthConn.getResponseCode() == 200) {
-                    serverReady = true;
-                }
+                int code = healthConn.getResponseCode();
                 healthConn.disconnect();
+                if (code == 200) {
+                    serverReady = true;
+                } else {
+                    healthRetries++;
+                    monitor.setStatusMessage("Waiting for server (" + healthRetries + "/30)...");
+                }
             } catch (Exception e) {
                 healthRetries++;
                 monitor.setStatusMessage("Waiting for server (" + healthRetries + "/30)...");
@@ -136,6 +147,45 @@ public class DockerUtil extends AbstractTask {
             return code == 200;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    // Returns null on success, or the captured docker error output on failure.
+    private String runContainer() {
+        String cmd = "docker run -d --name blant-svc -p 49161:5000 --platform linux/amd64 thealex7/blant-predict";
+        List<String> fullCmd = isWin
+                ? List.of("cmd.exe", "/c", cmd)
+                : List.of("sh", "-c", cmd);
+
+        try {
+            ProcessBuilder builder = new ProcessBuilder(fullCmd);
+            if (!isWin) {
+                builder.environment().put("PATH", MAC_PATH);
+            }
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[Docker Run]: " + line);
+                    output.append(line).append("\n");
+                }
+            }
+
+            boolean finished = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return "timed out after 30 seconds";
+            }
+            int exitCode = process.exitValue();
+            if (exitCode != 0) {
+                return output.toString().trim();
+            }
+            return null;
+        } catch (Exception e) {
+            return e.getMessage();
         }
     }
 
