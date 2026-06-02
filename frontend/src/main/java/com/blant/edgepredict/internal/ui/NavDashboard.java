@@ -68,7 +68,6 @@ public class NavDashboard extends JFrame {
     private final JPanel kValPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
     private final ConfidenceFilterPanel filterPanel;
     private JSlider precisionSlider;
-    private Boolean isFile = false;
 
     private NavDashboard(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {
         super("BLANT Navigation Controller");
@@ -111,16 +110,33 @@ public class NavDashboard extends JFrame {
                 }
             }
             try {
-                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, this.isFile).run();
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, false).run();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(NavDashboard.this, "Predict task failed: " + ex.getMessage());
             }
         });
         sendBtn.setPreferredSize(new Dimension(120, 25));
 
+        JButton importRunBtn = new JButton("Import & Run");
+        importRunBtn.addActionListener(e -> {
+            this.kVal.clear();
+            for (Checkbox cb : kValCheckboxes) {
+                if (cb.getState()) {
+                    this.kVal.add(cb.getLabel());
+                }
+            }
+            try {
+                new PredictTaskManager(fileUtil, networkFactory, networkManager, networkViewFactory, networkViewManager, layoutManager, vmm, vmfDiscrete, vmfPassthrough, vsFactory, dialogTaskManager, this.sampleMethod, this.precisionDigits, this.kVal, this.isSaved, true).run();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(NavDashboard.this, "Predict task failed: " + ex.getMessage());
+            }
+        });
+        importRunBtn.setPreferredSize(new Dimension(120, 25));
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.add(logBtn);
         buttonPanel.add(closePopupsBtn);
+        buttonPanel.add(importRunBtn);
         buttonPanel.add(sendBtn);
         this.add(buttonPanel, BorderLayout.SOUTH);
 

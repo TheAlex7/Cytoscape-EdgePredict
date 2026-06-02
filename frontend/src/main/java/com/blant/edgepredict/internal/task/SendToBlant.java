@@ -57,11 +57,10 @@ public class SendToBlant {
     }
 
     public File selectFile(Boolean isFile) {
-        // File chooser path (commented out — always export current graph as SIF)
-        // if (isFile) {
-        //     FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
-        //     return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
-        // }
+        if (isFile) {
+            FileChooserFilter filter = new FileChooserFilter("Network files (txt, csv, sif, el)", new String[]{"txt", "csv", "sif", "el"});
+            return this.fileUtil.getFile(JOptionPane.getRootFrame(), "Select Network File for BLANT", 0, Collections.singletonList(filter));
+        }
 
         ExportGraph exportGraph = ExportGraph.getInstance();
         try {
