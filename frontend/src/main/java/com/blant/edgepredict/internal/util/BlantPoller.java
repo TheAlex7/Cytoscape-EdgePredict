@@ -19,7 +19,7 @@ import javax.swing.SwingWorker;
 import com.blant.edgepredict.internal.ui.BlantLogWindow;
 
 public class BlantPoller {
-    private static final Pattern PROGRESS_PATTERN = Pattern.compile("\"progress\"\\s*:\\s*(\\d+)");
+    private static final Pattern PROGRESS_PATTERN = Pattern.compile("\"progress\"\\s*:\\s*\"?([\\d]+%?)\"?");
     private static final int MAX_RETRIES = 5;
     private static final long POLL_INTERVAL_MS = 5000L;
 
@@ -42,6 +42,7 @@ public class BlantPoller {
 
             @Override
             protected Void doInBackground() throws Exception {
+                String lastProgress = null;
                 while (!this.isCancelled()) {
                     try {
                         URL url = URI.create(BlantConfig.getProgressUrl() + jobId).toURL();
@@ -60,18 +61,32 @@ public class BlantPoller {
                                 sb.append(line);
                             }
                             String response = sb.toString();
-                            publish("[PING] " + response);
 
                             Matcher m = PROGRESS_PATTERN.matcher(response);
                             if (m.find()) {
-                                int progress = Integer.parseInt(m.group(1));
-                                if (progress == 1) {
-                                    BlantConfig.setProgress(progress);
+                                String progressStr = m.group(1); // e.g. "30%"
+                                if (!progressStr.equals(lastProgress)) {
+                                    lastProgress = progressStr;
+                                    publish("Progress: " + progressStr);
+                                }
+                                int progressInt;
+                                try {
+                                    progressInt = Integer.parseInt(progressStr.replace("%", "").trim());
+                                } catch (NumberFormatException nfe) {
+                                    progressInt = -1;
+                                }
+                                if (progressInt == 1 && !progressStr.contains("%")) {
+                                    BlantConfig.setProgress(1);
                                     return null;
                                 }
                             } else {
                                 publish("[WARN] Could not parse progress from response: " + response);
                             }
+                        } else if (responseCode == 201) {
+                            retryCount = 0;
+                            publish("[DONE] Job completed.");
+                            BlantConfig.setProgress(1);
+                            return null;
                         } else {
                             InputStream errStream = conn.getErrorStream();
                             String errBody = "";
