@@ -23,7 +23,9 @@ os.makedirs(JOBS_FOLDER, exist_ok=True)
 job_data = {
     "error": Bool,
     "finished": Bool,
-    "aborted": {0,1,2}, # -> {"Not requested", "job abort requested", "success"}
+    "aborted": {0,1,2},     # enum of {"Not requested", "job abort requested", "success"}
+    "target_prec": float,   # digit of precision target
+    "progress": float,
     "upload_path": String,
     "stdout_path": String,
     "stderr_path": String,
@@ -83,21 +85,6 @@ def getStderr(job_id):
         mimetype='text/plain'
     )
 
-    # def generate():
-    #     while not process_data["finished"] or not process_data["stderr_queue"].empty():
-    #         try:
-    #             line = process_data["stderr_queue"].get(timeout=0.5)
-    #             if line is None:  # terminates
-    #                 break
-    #             yield f"data: {line}\n\n"
-    #         except queue.Empty:
-    #             continue
-    #         except:
-    #             return "data: BLANT encountered an Error."
-    #     yield "data: [PREDICTION COMPLETE]\n\n"
-
-    # return Response(generate(), mimetype="text/event-stream", headers={'X-Accel-Buffering': 'no'})
-
 @app.route("/results/<job_id>")
 def getResult(job_id):
     job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
@@ -110,7 +97,7 @@ def getResult(job_id):
         
     if job_data["error"]:
         return jsonify({"error" : "Job encountered an error."}), 500
-    elif job_data["aborted"] == 2:
+    elif not job_data["finished"] and job_data["aborted"] == 2:
         return jsonify({"error": "Job was aborted."}), 400
     elif not job_data["finished"]:
         return jsonify({"error": "Job not done."}), 400
@@ -132,7 +119,7 @@ def getResult(job_id):
         mimetype='text/plain'
     )
 
-# gives boolean for if job is finished + current precision (PENDING/TODO)
+# gives percentage based on if digits are met or not
 @app.route("/progress/<job_id>")
 def checkProgress(job_id):
     job_data_path = os.path.join(JOBS_FOLDER, job_id, JOB_DATA_FILENAME)
@@ -142,18 +129,18 @@ def checkProgress(job_id):
         return jsonify({"error": "Job not found."}), 404
 
     if job_data["error"]:
-        return jsonify({"progress": 0, "error": "Job encounterd an error"}), 500
+        return jsonify({"progress": progress_tostring(job_data.get("progress","0%")), "error": "Job encounterd an error"}), 500
     elif job_data["aborted"]:
-        return jsonify({"progress": 0, "message": "Job was aborted"})
+        return jsonify({"progress": progress_tostring(job_data.get("progress","0%")), "message": "Job was aborted"})
     elif not job_data["finished"]:
-        return jsonify({"progress": 0})
+        return jsonify({"progress": progress_tostring(job_data.get("progress","0%"))})
 
-    return jsonify({"progress": 1})
+    return jsonify({"progress": "100%", "message": "Job complete"}), 201
 
-# TODO: job abort
 # TODO: Jobs should be grouped by checksum of input and subfolders are the unique param config (low priority)
 @app.route("/blant", methods=["POST"])
 def startBlant():
+    DEFAULT_PREC = "1.5"
     if 'file' not in request.files:
         return jsonify({"error": "No file provided."}), 400
     
@@ -172,13 +159,13 @@ def startBlant():
     sampling_method = request.args.get("method", default="EBE!").upper()
     isForced = request.args.get("force", default="0", type=str) # boolean
     isMock = request.args.get("mock", default="0", type=str) # boolean
-    precision = request.args.get("precision", default="1.5", type=str) # digit of precision 
+    precision = request.args.get("precision", default=DEFAULT_PREC, type=str) # digit of precision 
 
     if sampling_method not in VALID_SAMPLING_METHODS:
         return jsonify({"error": f"Not a valid sampling method. Valid sampling methods: MCMC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER"}), 400
 
-    if not k.isdigit() or int(k) < 3 or int(k) > 8:
-        return jsonify({"error": f"k must be integer in range [3,8]."}), 400
+    if not k.isdigit() or int(k) < 4 or int(k) > 8:
+        return jsonify({"error": f"k must be integer in range [4,8]."}), 400
     
     if not isForced.isdigit():
         return jsonify({"error": f"force must be integer representation of a boolean."}), 400
@@ -192,7 +179,7 @@ def startBlant():
         else:
             precision = str(float(precision))
     except ValueError:
-        precision = "1"
+        precision = DEFAULT_PREC
     
     # extension includes "." (ex: .sif, .el, .txt), if no extension then empty str
     user_ext = "." + file_format if file_format != "" else ""
@@ -220,6 +207,8 @@ def startBlant():
         "finished": False,
         "error": False,
         "aborted": 0,
+        "target_prec": float(precision),
+        "progress": 0.0,
         "upload_path": upload_path,
         "stdout_path": stdout_path,
         "stderr_path": stderr_path,
@@ -244,6 +233,8 @@ def abortJob(job_id):
 
     if os.path.isfile(job_data_path):
         job_data = load_job_data(job_data_path)
+        if not job_data:
+            return jsonify({"error": "Job data pending, please try again."}), 500
     else:
         return jsonify({"error": "Job not found."}), 404
 
@@ -252,7 +243,7 @@ def abortJob(job_id):
     elif job_data["aborted"] == 1:
         return jsonify({"error": "Abort already requested."}), 400
     elif job_data["aborted"] == 2:
-        return jsonify({"error": "Job was aborted."}), 400
+        return jsonify({"error": "Job aborted."}), 200
     elif job_data["error"]:
         return jsonify({"error": "Job encountered an error."}), 500
 
@@ -260,11 +251,14 @@ def abortJob(job_id):
     update_job_data(job_data, job_data_path)
 
     cur_time = time.perf_counter()
-    while load_job_data(job_data_path).get("aborted") != 2:
+    while job_data.get("aborted") != 2:
         elapsed_time = time.perf_counter() - cur_time # in seconds
         if elapsed_time > 5:
             return jsonify({"error": "Job abort failed."}), 500
         time.sleep(.001) # sleep for 1 ms
+        job_data = load_job_data(job_data_path)
+        if not job_data:
+            return jsonify({"error": "Job buffering, please try again."}), 500
 
     return jsonify({"message": "Job aborted."}), 200
 
