@@ -50,7 +50,7 @@ public class MenuAction extends AbstractCyAction {
                       CyNetworkViewManager networkViewManager,
                       CyLayoutAlgorithmManager layoutManager,
                       DialogTaskManager dialogTaskManager) {
-        super("BLANT Prediction Dashboard");
+        super("CyBLANT Edge Predict");
         this.appManager = appManager;
         this.taskManager = taskManager;
         this.writerManager = writerManager;

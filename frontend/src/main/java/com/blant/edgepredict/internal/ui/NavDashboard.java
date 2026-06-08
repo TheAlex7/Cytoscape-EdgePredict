@@ -70,7 +70,7 @@ public class NavDashboard extends JFrame {
     private JSlider precisionSlider;
 
     private NavDashboard(TaskManager taskManager, CyApplicationManager applicationManager, CyNetworkViewWriterManager writerManager, FileUtil fileUtil, VisualMappingManager vmm, VisualMappingFunctionFactory vmfDiscrete, VisualMappingFunctionFactory vmfPassthrough, VisualStyleFactory vsFactory, CyNetworkFactory networkFactory, CyNetworkManager networkManager, CyNetworkViewFactory networkViewFactory, CyNetworkViewManager networkViewManager, CyLayoutAlgorithmManager layoutManager, DialogTaskManager dialogTaskManager) {
-        super("BLANT Navigation Controller");
+        super("CyBLANT Edge Predict");
         this.taskManager = taskManager;
         this.applicationManager = applicationManager;
         this.fileUtil = fileUtil;
@@ -185,7 +185,7 @@ public class NavDashboard extends JFrame {
     private JPanel sampleMethodPanel() {
         JPanel panel = new JPanel(new GridLayout(2, 1));
         JLabel label = new JLabel("Sample Method");
-        String[] methods = {"MCMC (Markov Chain Monte Carlo)", "NBE (Node Based Expansion)", "EBE (Edge Based Expansion)", "RES (Reservior sampling)", "AR (accept/reject)"};
+        String[] methods = {"EBE! (Edge Based Expansion)", "MCMC (Markov Chain Monte Carlo)", "NBE (Node Based Expansion)", "RES (Reservior sampling)", "AR (accept/reject)"};
         JComboBox<String> combo = new JComboBox<>(methods);
         combo.addActionListener(e -> this.sampleMethod = (String) combo.getSelectedItem());
         panel.add(label);

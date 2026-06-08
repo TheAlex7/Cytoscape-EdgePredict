@@ -9,10 +9,10 @@
   </properties>
 
   <groupId>com.blant.edgepredict</groupId>
-  <artifactId>BLANT</artifactId>
+  <artifactId>CyBLANT</artifactId>
   <packaging>bundle</packaging>
-  <version>1.231</version>
-  <name>BLANT for Cytoscape</name>
+  <version>1.0</version>
+  <name>CyBLANT Edge Predict</name>
 
   <build>
     <plugins>

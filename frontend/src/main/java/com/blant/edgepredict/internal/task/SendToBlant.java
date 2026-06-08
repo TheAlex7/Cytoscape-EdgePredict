@@ -103,7 +103,7 @@ public class SendToBlant {
             baos.write((LINE_FEED + "--" + boundary + "--" + LINE_FEED).getBytes(StandardCharsets.UTF_8));
 
             String kParam = this.kVal.isEmpty() ? "4" : this.kVal.get(0);
-            String method = this.sampleMethod == null ? "MCMC" : this.sampleMethod.replaceAll("\\s*\\(.*\\)$", "").trim();
+            String method = this.sampleMethod == null ? "EBE!" : this.sampleMethod.replaceAll("\\s*\\(.*\\)$", "").trim();
 
             String queryParams = "?k=" + kParam + "&method=" + method + "&precision=" + this.precisionDigits;
             if (force) {
